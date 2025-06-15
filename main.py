@@ -19,33 +19,53 @@ from lxml import html
 
 create_db = (
     """
-        CREATE TABLE IF NOT EXISTS users(
-            id SERIAL,
-            time TIMESTAMP DEFAULT NOW(),
-            user_id INTEGER PRIMARY KEY NOT NULL,
-            user_name VARCHAR(250) NOT NULL,
-            first_name VARCHAR(250),
-            last_name VARCHAR(250)
-        )
-        """,
-        """
-        CREATE TABLE IF NOT EXISTS categories (
-            user_id INTEGER,
-            category VARCHAR(100),
-            time TIMESTAMP DEFAULT NOW(),
-            FOREIGN KEY (user_id )
-            REFERENCES users (user_id )
+    CREATE TABLE IF NOT EXISTS users(
+        id SERIAL,
+        time TIMESTAMP DEFAULT NOW(),
+        user_id BIGINT PRIMARY KEY NOT NULL,
+        user_name VARCHAR(250) NOT NULL,
+        first_name VARCHAR(250),
+        last_name VARCHAR(250)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS watches (
+        user_id BIGINT,
+        watch VARCHAR(100),
+        time TIMESTAMP DEFAULT NOW(),
+        FOREIGN KEY (user_id)
+            REFERENCES users (user_id)
             ON UPDATE CASCADE
             ON DELETE CASCADE
-)
+    )
     """
 )
+
+async def create_tables():
+    for command in create_db:
+        await command_execute(command)
 
 async def connect_db():
 
     return await asyncpg.connect(user=user, password=password, database=database, host=host, port=port)
 
 
+async def command_execute(command, arguments = None):
+
+    conn = None
+    try:
+        conn = await connect_db()
+        if arguments is not None:
+            await conn.execute(command, *arguments)
+        else :
+            await conn.execute(command)
+
+    except asyncpg.PostgresError as e:
+        raise e
+    
+    finally:
+        if conn is not None:  
+            await conn.close()
 
 def remove_duplicates(watches):
     unique = []
@@ -96,8 +116,40 @@ async def keyboard_handler(message: types.Message):
 
 
 
+async def user_data_handler(message: types.Message) -> None:
+    conn = None
+    try:
+        conn = await connect_db()
+        user = message.from_user
+        user_id = user.id
+        first_name = user.first_name
+        last_name = user.last_name
+        user_name = user.username
+
+        record = await conn.fetchval('SELECT user_id FROM users WHERE user_id = $1', user_id)
+
+        if record is None:
+            insert_query = """
+            INSERT INTO users(time, user_id, user_name, first_name, last_name) 
+            VALUES (NOW(), $1, $2, $3, $4);
+            """
+            await conn.execute(insert_query, user_id, user_name, first_name, last_name)
+
+        await message.answer(f"Hello {first_name}. Do you want to choose a watch??")
+    except asyncpg.PostgresError as e:
+        print(f"Database error: {str(e)}")
+    finally:
+        if conn is not None:
+            await conn.close()
+
+
+
+
+
+
 async def main():
     start = time.perf_counter()
+    await create_tables()
     conn = await connect_db()
 
     bot = Bot(token=token)
@@ -106,7 +158,7 @@ async def main():
     watches = await get_watches(url)
     #print(f"quantity: {len(watches)}")
 
-    await conn.execute(*create_db)
+
     dp.message.register(start_handler, Command("start"))
     dp.message.register(keyboard_handler)
  
