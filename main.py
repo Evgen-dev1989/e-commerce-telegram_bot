@@ -4,7 +4,7 @@ import asyncpg
 import requests
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from lxml import html
 from lxml.html import HtmlElement
 
@@ -53,17 +53,16 @@ async def create_tables():
     for command in create_db:
         await command_execute(command)
 
-keyboard = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="button 1"), KeyboardButton(text="button 2")],
-        [KeyboardButton(text="button 3")]
-    ],
-    resize_keyboard=True
+inline_kb = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="buy", callback_data="buy")],
+        [InlineKeyboardButton(text="ex", url="ex")]
+    ]
 )
 
 
 async def keyboard_handler(message: types.Message):
-    await message.answer("Select an option:", reply_markup=keyboard)
+    await message.answer("Select an option:", reply_markup=inline_kb)
 
 
 
@@ -154,7 +153,17 @@ async def user_data_handler(message: types.Message) -> None:
             await conn.close()
 
 
+async def watch_name_handler(message: types.Message, state: FSMContext):
+    await state.update_data(watch_name=message.text)
+    await message.answer("Enter the price of the watch:")
+    await state.set_state(WatchStates.waiting_for_watch_price)
 
+async def watch_price_handler(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    watch_name = data.get("watch_name")
+    watch_price = message.text
+    await message.answer(f"You chose : {watch_name} for {watch_price}")
+    await state.clear()
 
 
 
@@ -165,13 +174,14 @@ async def main():
     bot = Bot(token=token)
     dp = Dispatcher()
 
-    watches = await get_watches(url)
     #print(f"quantity: {len(watches)}")
 
 
-    dp.message.register(start_handler, Command("start"))
-    dp.message.register(user_data_handler, Command("start"))
+    dp.message.register(start_handler,user_data_handler, Command("start"))
     dp.message.register(keyboard_handler)
+    await get_watches(url)
+    dp.message.register(watch_name_handler, WatchStates.waiting_for_watch_name)
+    dp.message.register(watch_price_handler, WatchStates.waiting_for_watch_price)
  
 
     end = time.perf_counter()
