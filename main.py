@@ -53,16 +53,9 @@ async def create_tables():
     for command in create_db:
         await command_execute(command)
 
-inline_kb = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [InlineKeyboardButton(text="buy", callback_data="buy")],
-        [InlineKeyboardButton(text="ex", url="ex")]
-    ]
-)
-
 
 async def keyboard_handler(message: types.Message):
-    await message.answer("Select an option:", reply_markup=inline_kb)
+    await message.answer("Select an option:", reply_markup=name_watches)
 
 
 
@@ -122,9 +115,7 @@ async def get_watches(url):
 
 async def start_handler(message: types.Message):
     await message.answer("Welcome to the Omega Watches Bot! Type /watches to see the latest watches.")
-
-
-
+    #await keyboard_handler(message)
 
 async def user_data_handler(message: types.Message) -> None:
     conn = None
@@ -145,7 +136,7 @@ async def user_data_handler(message: types.Message) -> None:
             """
             await conn.execute(insert_query, user_id, user_name, first_name, last_name)
 
-        await message.answer(f"Hello {first_name}. Do you want to choose a watch??")
+        #await message.answer(f"Hello {first_name}. Do you want to choose a watch??")
     except asyncpg.PostgresError as e:
         print(f"Database error: {str(e)}")
     finally:
@@ -153,35 +144,77 @@ async def user_data_handler(message: types.Message) -> None:
             await conn.close()
 
 
-async def watch_name_handler(message: types.Message, state: FSMContext):
-    await state.update_data(watch_name=message.text)
-    await message.answer("Enter the price of the watch:")
-    await state.set_state(WatchStates.waiting_for_watch_price)
+name_watches = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="Omega", callback_data="buy")],
+        [InlineKeyboardButton(text="Rolex", callback_data="buy")],
+        [InlineKeyboardButton(text="Jaeger-LeCoultre", callback_data="buy")],
+        #[InlineKeyboardButton(text="", url="https://example.com")]
+    ]
+)
 
-async def watch_price_handler(message: types.Message, state: FSMContext):
+async def watch_name_handler(message: types.Message, state: FSMContext):
+    await message.answer("Choose price:", reply_markup=name_watches)
+
+async def watch_callback_handler(callback: types.CallbackQuery, state: FSMContext):
+
+    price = callback.data.replace("price_", "")
+    await state.update_data(watch_price=price)
     data = await state.get_data()
     watch_name = data.get("watch_name")
-    watch_price = message.text
-    await message.answer(f"You chose : {watch_name} for {watch_price}")
+    await callback.message.answer(f"You choose: {watch_name} за {price}")
     await state.clear()
+    await callback.answer() 
+
+# async def watch_name_handler(message: types.Message, state: FSMContext):
+#     await state.update_data(watch_name=message.text)
+#     await message.answer("Enter the price of the watch:")
+#     await state.set_state(WatchStates.waiting_for_watch_price)
+
+
+
+price_kb = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="1000", callback_data="price_1000"),
+        InlineKeyboardButton(text="2000", callback_data="price_2000"),
+        InlineKeyboardButton(text="3000", callback_data="price_3000")],
+        [InlineKeyboardButton(text="4000", callback_data="price_4000"),
+        InlineKeyboardButton(text="5000+", callback_data="price_5000")]
+    ]
+)
+
+
+async def watch_price_handler(message: types.Message, state: FSMContext):
+    await message.answer("Choose price:", reply_markup=price_kb)
+
+async def price_callback_handler(callback: types.CallbackQuery, state: FSMContext):
+    price = callback.data.replace("price_", "")
+    await state.update_data(watch_price=price)
+    data = await state.get_data()
+    watch_name = data.get("watch_name")
+    await callback.message.answer(f"You choose: {watch_name} за {price}")
+    await state.clear()
+    await callback.answer() 
 
 
 
 async def main():
     start = time.perf_counter()
-    await create_tables()
 
     bot = Bot(token=token)
     dp = Dispatcher()
 
     #print(f"quantity: {len(watches)}")
+    await create_tables()
 
 
-    dp.message.register(start_handler,user_data_handler, Command("start"))
-    dp.message.register(keyboard_handler)
-    await get_watches(url)
+    dp.message.register(start_handler, Command("start"))
     dp.message.register(watch_name_handler, WatchStates.waiting_for_watch_name)
     dp.message.register(watch_price_handler, WatchStates.waiting_for_watch_price)
+    dp.callback_query.register(price_callback_handler, lambda c: c.data.startswith("price_"))
+
+    dp.message.register(user_data_handler)
+    #await get_watches(url)
  
 
     end = time.perf_counter()
