@@ -113,9 +113,15 @@ async def get_watches(url):
 
 
 
-async def start_handler(message: types.Message):
-    await message.answer("Welcome to the Omega Watches Bot! Type /watches to see the latest watches.")
-    #await keyboard_handler(message)
+# async def start_handler(message: types.Message):
+#     await message.answer("Welcome to the Omega Watches Bot! Type /watches to see the latest watches.")
+#     #await keyboard_handler(message)
+
+async def start_handler(message: types.Message, state: FSMContext):
+    await message.answer("Welcome to the Omega Watches Bot! Choose a watch:")
+    await message.answer("Choose watch:", reply_markup=name_watches)
+    await state.set_state(WatchStates.waiting_for_watch_name)
+
 
 async def user_data_handler(message: types.Message) -> None:
     conn = None
@@ -143,35 +149,31 @@ async def user_data_handler(message: types.Message) -> None:
         if conn is not None:
             await conn.close()
 
-
-name_watches = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [InlineKeyboardButton(text="Omega", callback_data="buy")],
-        [InlineKeyboardButton(text="Rolex", callback_data="buy")],
-        [InlineKeyboardButton(text="Jaeger-LeCoultre", callback_data="buy")],
-        #[InlineKeyboardButton(text="", url="https://example.com")]
-    ]
-)
-
-async def watch_name_handler(message: types.Message, state: FSMContext):
-    await message.answer("Choose price:", reply_markup=name_watches)
-
-async def watch_callback_handler(callback: types.CallbackQuery, state: FSMContext):
-
-    price = callback.data.replace("price_", "")
-    await state.update_data(watch_price=price)
-    data = await state.get_data()
-    watch_name = data.get("watch_name")
-    await callback.message.answer(f"You choose: {watch_name} за {price}")
-    await state.clear()
-    await callback.answer() 
-
 # async def watch_name_handler(message: types.Message, state: FSMContext):
 #     await state.update_data(watch_name=message.text)
 #     await message.answer("Enter the price of the watch:")
 #     await state.set_state(WatchStates.waiting_for_watch_price)
 
 
+
+
+name_watches = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="Omega", callback_data="name_Omega")],
+        [InlineKeyboardButton(text="Rolex", callback_data="name_Rolex")],
+        [InlineKeyboardButton(text="Jaeger-LeCoultre", callback_data="name_Jaeger-LeCoultre")],
+    ]
+)
+
+# async def watch_name_handler(message: types.Message, state: FSMContext):
+#     await message.answer("Choose price:", reply_markup=name_watches)
+
+async def watch_callback_handler(callback: types.CallbackQuery, state: FSMContext):
+    name = callback.data.replace("name_", "")
+    await state.update_data(watch_name=name)
+    await callback.message.answer("Choose price:", reply_markup=price_kb)
+    await state.set_state(WatchStates.waiting_for_watch_price)
+    await callback.answer()
 
 price_kb = InlineKeyboardMarkup(
     inline_keyboard=[
@@ -182,8 +184,6 @@ price_kb = InlineKeyboardMarkup(
         InlineKeyboardButton(text="5000+", callback_data="price_5000")]
     ]
 )
-
-
 async def watch_price_handler(message: types.Message, state: FSMContext):
     await message.answer("Choose price:", reply_markup=price_kb)
 
@@ -194,7 +194,7 @@ async def price_callback_handler(callback: types.CallbackQuery, state: FSMContex
     watch_name = data.get("watch_name")
     await callback.message.answer(f"You choose: {watch_name} за {price}")
     await state.clear()
-    await callback.answer() 
+    await callback.answer()
 
 
 
@@ -207,12 +207,10 @@ async def main():
     #print(f"quantity: {len(watches)}")
     await create_tables()
 
-
     dp.message.register(start_handler, Command("start"))
-    dp.message.register(watch_name_handler, WatchStates.waiting_for_watch_name)
+    dp.callback_query.register(watch_callback_handler, lambda c: c.data.startswith("name_"))
     dp.message.register(watch_price_handler, WatchStates.waiting_for_watch_price)
     dp.callback_query.register(price_callback_handler, lambda c: c.data.startswith("price_"))
-
     dp.message.register(user_data_handler)
     #await get_watches(url)
  
