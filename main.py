@@ -165,37 +165,48 @@ name_watches = InlineKeyboardMarkup(
     ]
 )
 
-# async def watch_name_handler(message: types.Message, state: FSMContext):
-#     await message.answer("Choose price:", reply_markup=name_watches)
-
 async def watch_callback_handler(callback: types.CallbackQuery, state: FSMContext):
     name = callback.data.replace("name_", "")
     await state.update_data(watch_name=name)
-    await callback.message.answer("Choose price:", reply_markup=price_kb)
-    await state.set_state(WatchStates.waiting_for_watch_price)
+    await callback.message.answer("Choose price from:", reply_markup=price_from_kb)
     await callback.answer()
 
-price_kb = InlineKeyboardMarkup(
+
+price_from_kb = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="1000", callback_data="price_1000"),
-        InlineKeyboardButton(text="2000", callback_data="price_2000"),
-        InlineKeyboardButton(text="3000", callback_data="price_3000")],
-        [InlineKeyboardButton(text="4000", callback_data="price_4000"),
-        InlineKeyboardButton(text="5000+", callback_data="price_5000")]
+        [InlineKeyboardButton(text="1000", callback_data="from_1000"),
+         InlineKeyboardButton(text="2000", callback_data="from_2000"),
+         InlineKeyboardButton(text="3000", callback_data="from_3000")],
+        [InlineKeyboardButton(text="4000", callback_data="from_4000"),
+         InlineKeyboardButton(text="5000", callback_data="from_5000")]
     ]
 )
-async def watch_price_handler(message: types.Message, state: FSMContext):
-    await message.answer("Choose price:", reply_markup=price_kb)
 
-async def price_callback_handler(callback: types.CallbackQuery, state: FSMContext):
-    price = callback.data.replace("price_", "")
-    await state.update_data(watch_price=price)
-    data = await state.get_data()
-    watch_name = data.get("watch_name")
-    await callback.message.answer(f"You choose: {watch_name} за {price}")
-    await state.clear()
+
+price_to_kb = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="2000", callback_data="to_2000"),
+         InlineKeyboardButton(text="3000", callback_data="to_3000"),
+         InlineKeyboardButton(text="4000", callback_data="to_4000")],
+        [InlineKeyboardButton(text="5000", callback_data="to_5000"),
+         InlineKeyboardButton(text="10000+", callback_data="to_10000")]
+    ]
+)
+
+async def price_from_callback_handler(callback: types.CallbackQuery, state: FSMContext):
+    price_from = callback.data.replace("from_", "")
+    await state.update_data(price_from=price_from)
+    await callback.message.answer("Choose price to:", reply_markup=price_to_kb)
     await callback.answer()
 
+async def price_to_callback_handler(callback: types.CallbackQuery, state: FSMContext):
+    price_to = callback.data.replace("to_", "")
+    data = await state.get_data()
+    watch_name = data.get("watch_name")
+    price_from = data.get("price_from")
+    await callback.message.answer(f"You have selected {watch_name} a range: from {price_from} to {price_to}")
+    await state.clear()
+    await callback.answer()
 
 
 async def main():
@@ -209,8 +220,9 @@ async def main():
 
     dp.message.register(start_handler, Command("start"))
     dp.callback_query.register(watch_callback_handler, lambda c: c.data.startswith("name_"))
-    dp.message.register(watch_price_handler, WatchStates.waiting_for_watch_price)
-    dp.callback_query.register(price_callback_handler, lambda c: c.data.startswith("price_"))
+    #dp.message.register(watch_price_handler, WatchStates.waiting_for_watch_price)
+    dp.callback_query.register(price_from_callback_handler, lambda c: c.data.startswith("from_"))
+    dp.callback_query.register(price_to_callback_handler, lambda c: c.data.startswith("to_"))
     dp.message.register(user_data_handler)
     #await get_watches(url)
  
