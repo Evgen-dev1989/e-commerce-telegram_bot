@@ -12,6 +12,7 @@ from config import database, host, password, port, token, user
 
 url_omega = 'https://www.omegawatches.com/en-au/suggestions/omega-mens-watches'
 url_rolex = 'https://www.chrono24.com.au/rolex/index.htm'
+url_Jaeger_LeCoultre = "https://www.jaeger-lecoultre.com/au-en/watches/all-watches"
 import time
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
@@ -113,9 +114,6 @@ async def get_watches_omega(url):
     return watches
 
 
-
-
-
 def get_watches_rolex(url):
     driver = webdriver.Chrome()
     driver.get(url)
@@ -140,11 +138,32 @@ def get_watches_rolex(url):
 
 
 
-
-
-
-
-
+def get_watches_jlc(url):
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--disable-gpu')
+    driver = webdriver.Chrome(options=options)
+    driver.get(url)
+    time.sleep(5)
+    tree = html.fromstring(driver.page_source)
+    items = tree.xpath('//div[contains(@class, "product-card") and @data-cy="mixed-grid-item"]')
+    watches = []
+    for item in items:
+        name = item.xpath('.//h5[contains(@class, "product-card__name")]/text()')
+        name = name[0].strip() if name else ''
+        characteristics = item.xpath('.//div[contains(@class, "product-card__specs")]/text()')
+        characteristics = characteristics[0].strip() if characteristics else ''
+        price = item.xpath('.//span[@data-price="value"]/text()')
+        price = price[0].strip() if price else ''
+        if name or characteristics or price:
+            watches.append({
+                'name': name,
+                'characteristics': characteristics,
+                'price': price
+            })
+    driver.quit()
+    watches = remove_duplicates(watches)
+    return watches
 
 
 
@@ -250,13 +269,14 @@ async def main():
 
     dp.message.register(user_data_handler)
     #await get_watches(url)
-    watche_omega = await get_watches_omega(url_omega)
+    #watche_omega = await get_watches_omega(url_omega)
    # print(len(watche_omega))
 
-    watches_rolex = get_watches_rolex(url_rolex)
-    print(watches_rolex)
+    #watches_rolex = get_watches_rolex(url_rolex)
+    #print(watches_rolex)
 
- 
+    watches_jlc = get_watches_jlc(url_Jaeger_LeCoultre)
+    print(len(watches_jlc))
     end = time.perf_counter()
     print(f"execution time: {end - start:.6f} seconds")
     await dp.start_polling(bot)
