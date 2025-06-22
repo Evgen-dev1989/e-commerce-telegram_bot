@@ -7,17 +7,19 @@ from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from lxml import html
 from lxml.html import HtmlElement
-
+from selenium import webdriver
 from config import database, host, password, port, token, user
 
-url = 'https://www.omegawatches.com/en-au/suggestions/omega-mens-watches'
-
+url_omega = 'https://www.omegawatches.com/en-au/suggestions/omega-mens-watches'
+url_rolex = 'https://www.chrono24.com.au/rolex/index.htm'
 import time
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram import types
 import requests
-from lxml import html
+
+
+
 
 create_db = (
     """
@@ -91,7 +93,7 @@ def remove_duplicates(watches):
             unique.append(w)
     return unique
 
-async def get_watches(url):
+async def get_watches_omega(url):
     response = requests.get(url)
     tree = html.fromstring(response.content)
     items = tree.xpath('//li[contains(@class, "product-item")]')
@@ -113,9 +115,38 @@ async def get_watches(url):
 
 
 
-# async def start_handler(message: types.Message):
-#     await message.answer("Welcome to the Omega Watches Bot! Type /watches to see the latest watches.")
-#     #await keyboard_handler(message)
+
+def get_watches_rolex(url):
+    driver = webdriver.Chrome()
+    driver.get(url)
+    tree = html.fromstring(driver.page_source)
+    items = tree.xpath('//div[contains(@class, "js-carousel-cell")]')
+    watches = []
+    for item in items:
+        brand = item.xpath('.//span[contains(@class, "d-block")]/text()')
+        brand = brand[0].strip() if brand else ''
+        model = item.xpath('.//strong/text()')
+        model = model[0].strip() if model else ''
+        price = item.xpath('.//p[contains(text(), "from AU$")]/text()')
+        price = price[0].strip() if price else ''
+        if brand or model or price:
+            watches.append({
+                'brand': brand,
+                'model': model,
+                'price': price
+            })
+    driver.quit()
+    return watches
+
+
+
+
+
+
+
+
+
+
 
 async def start_handler(message: types.Message, state: FSMContext):
     await message.answer("Welcome to the Omega Watches Bot! Choose a watch:")
@@ -148,14 +179,6 @@ async def user_data_handler(message: types.Message) -> None:
     finally:
         if conn is not None:
             await conn.close()
-
-# async def watch_name_handler(message: types.Message, state: FSMContext):
-#     await state.update_data(watch_name=message.text)
-#     await message.answer("Enter the price of the watch:")
-#     await state.set_state(WatchStates.waiting_for_watch_price)
-
-
-
 
 name_watches = InlineKeyboardMarkup(
     inline_keyboard=[
@@ -205,6 +228,7 @@ async def price_to_callback_handler(callback: types.CallbackQuery, state: FSMCon
     watch_name = data.get("watch_name")
     price_from = data.get("price_from")
     await callback.message.answer(f"You have selected {watch_name} a range: from {price_from} to {price_to}")
+
     await state.clear()
     await callback.answer()
 
@@ -220,13 +244,19 @@ async def main():
 
     dp.message.register(start_handler, Command("start"))
     dp.callback_query.register(watch_callback_handler, lambda c: c.data.startswith("name_"))
-    #dp.message.register(watch_price_handler, WatchStates.waiting_for_watch_price)
+
     dp.callback_query.register(price_from_callback_handler, lambda c: c.data.startswith("from_"))
     dp.callback_query.register(price_to_callback_handler, lambda c: c.data.startswith("to_"))
+
     dp.message.register(user_data_handler)
     #await get_watches(url)
- 
+    watche_omega = await get_watches_omega(url_omega)
+   # print(len(watche_omega))
 
+    watches_rolex = get_watches_rolex(url_rolex)
+    print(watches_rolex)
+
+ 
     end = time.perf_counter()
     print(f"execution time: {end - start:.6f} seconds")
     await dp.start_polling(bot)
