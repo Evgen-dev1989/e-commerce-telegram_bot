@@ -94,7 +94,7 @@ def remove_duplicates(watches):
             unique.append(w)
     return unique
 
-async def get_watches_omega(url):
+def get_watches_omega(url):
     response = requests.get(url)
     tree = html.fromstring(response.content)
     items = tree.xpath('//li[contains(@class, "product-item")]')
@@ -166,12 +166,46 @@ def get_watches_jlc(url):
     return watches
 
 
+async def show_choice_user(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    watch_name = data.get("watch_name")
+    price_from = data.get("price_from")
+    price_to = data.get("price_to")
+
+    if watch_name == "Omega":
+        watches = await get_watches_omega(url_omega)
+    elif watch_name == "Rolex":
+        watches = get_watches_rolex(url_rolex)
+    else:
+        watches = get_watches_jlc(url_Jaeger_LeCoultre)
+
+    if not watches:
+        await message.answer("No watches found for your selection.")
+    else:
+        for watch in watches:
+            msg = ""
+            if watch_name == "Rolex":
+                msg = (
+                    f"Brand: {watch.get('brand', '')}\n"
+                    f"Model: {watch.get('model', '')}\n"
+                    f"Price: {watch.get('price', '')}"
+                )
+            else:
+                msg = (
+                    f"Name: {watch.get('name', '')}\n"
+                    f"Characteristics: {watch.get('characteristics', '')}\n"
+                    f"Price: {watch.get('price', '')}"
+                )
+            await message.answer(msg)
+
+    await state.clear()
+    await message.answer()
+
 
 async def start_handler(message: types.Message, state: FSMContext):
     await message.answer("Welcome to the Omega Watches Bot! Choose a watch:")
     await message.answer("Choose watch:", reply_markup=name_watches)
     await state.set_state(WatchStates.waiting_for_watch_name)
-
 
 async def user_data_handler(message: types.Message) -> None:
     conn = None
@@ -213,7 +247,6 @@ async def watch_callback_handler(callback: types.CallbackQuery, state: FSMContex
     await callback.message.answer("Choose price from:", reply_markup=price_from_kb)
     await callback.answer()
 
-
 price_from_kb = InlineKeyboardMarkup(
     inline_keyboard=[
         [InlineKeyboardButton(text="1000", callback_data="from_1000"),
@@ -223,7 +256,6 @@ price_from_kb = InlineKeyboardMarkup(
          InlineKeyboardButton(text="5000", callback_data="from_5000")]
     ]
 )
-
 
 price_to_kb = InlineKeyboardMarkup(
     inline_keyboard=[
@@ -246,7 +278,7 @@ async def price_to_callback_handler(callback: types.CallbackQuery, state: FSMCon
     data = await state.get_data()
     watch_name = data.get("watch_name")
     price_from = data.get("price_from")
-    await callback.message.answer(f"You have selected {watch_name} a range: from {price_from} to {price_to}")
+    await callback.message.answer(f"You have selected {watch_name} a range: from {price_from} to {price_to}.Do you want look /watches ?")
 
     await state.clear()
     await callback.answer()
@@ -266,17 +298,10 @@ async def main():
 
     dp.callback_query.register(price_from_callback_handler, lambda c: c.data.startswith("from_"))
     dp.callback_query.register(price_to_callback_handler, lambda c: c.data.startswith("to_"))
-
+ 
+    dp.message.register(show_choice_user, Command("watches"))
     dp.message.register(user_data_handler)
-    #await get_watches(url)
-    #watche_omega = await get_watches_omega(url_omega)
-   # print(len(watche_omega))
 
-    #watches_rolex = get_watches_rolex(url_rolex)
-    #print(watches_rolex)
-
-    watches_jlc = get_watches_jlc(url_Jaeger_LeCoultre)
-    print(len(watches_jlc))
     end = time.perf_counter()
     print(f"execution time: {end - start:.6f} seconds")
     await dp.start_polling(bot)
