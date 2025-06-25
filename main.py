@@ -172,8 +172,12 @@ async def show_choice_user(message: types.Message, state: FSMContext):
     price_from = data.get("price_from")
     price_to = data.get("price_to")
 
+    if price_from is None or price_to is None:
+        await message.answer("Price range is not set. Please select price range again.")
+        return
+
     if watch_name == "Omega":
-        watches = await get_watches_omega(url_omega)
+        watches = get_watches_omega(url_omega)
     elif watch_name == "Rolex":
         watches = get_watches_rolex(url_rolex)
     else:
@@ -183,23 +187,31 @@ async def show_choice_user(message: types.Message, state: FSMContext):
         await message.answer("No watches found for your selection.")
     else:
         for watch in watches:
-            msg = ""
-            if watch_name == "Rolex":
-                msg = (
-                    f"Brand: {watch.get('brand', '')}\n"
-                    f"Model: {watch.get('model', '')}\n"
-                    f"Price: {watch.get('price', '')}"
-                )
-            else:
-                msg = (
-                    f"Name: {watch.get('name', '')}\n"
-                    f"Characteristics: {watch.get('characteristics', '')}\n"
-                    f"Price: {watch.get('price', '')}"
-                )
-            await message.answer(msg)
+            try:
+                price_str = watch.get('price', '')
+                price_digits = ''.join(c for c in price_str if c.isdigit() or c == '.')
+                if not price_digits:
+                    continue
+                price = float(price_digits)
+                if float(price_from) <= price <= float(price_to):
+                    if watch_name == "Rolex":
+                        msg = (
+                            f"Brand: {watch.get('brand', '')}\n"
+                            f"Model: {watch.get('model', '')}\n"
+                            f"Price: {watch.get('price', '')}"
+                        )
+                    else:
+                        msg = (
+                            f"Name: {watch.get('name', '')}\n"
+                            f"Characteristics: {watch.get('characteristics', '')}\n"
+                            f"Price: {watch.get('price', '')}"
+                        )
+                    await message.answer(msg)
+            except ValueError:
+                print("Error converting price to float. Skipping this watch.")
 
     await state.clear()
-    await message.answer()
+
 
 
 async def start_handler(message: types.Message, state: FSMContext):
@@ -249,20 +261,20 @@ async def watch_callback_handler(callback: types.CallbackQuery, state: FSMContex
 
 price_from_kb = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="1000", callback_data="from_1000"),
-         InlineKeyboardButton(text="2000", callback_data="from_2000"),
-         InlineKeyboardButton(text="3000", callback_data="from_3000")],
-        [InlineKeyboardButton(text="4000", callback_data="from_4000"),
-         InlineKeyboardButton(text="5000", callback_data="from_5000")]
+        [InlineKeyboardButton(text="10000", callback_data="from_10000"),
+         InlineKeyboardButton(text="20000", callback_data="from_20000"),
+         InlineKeyboardButton(text="30000", callback_data="from_30000")],
+        [InlineKeyboardButton(text="40000", callback_data="from_40000"),
+         InlineKeyboardButton(text="50000", callback_data="from_50000")]
     ]
 )
 
 price_to_kb = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="2000", callback_data="to_2000"),
-         InlineKeyboardButton(text="3000", callback_data="to_3000"),
-         InlineKeyboardButton(text="4000", callback_data="to_4000")],
-        [InlineKeyboardButton(text="5000", callback_data="to_5000"),
+        [InlineKeyboardButton(text="20000", callback_data="to_20000"),
+         InlineKeyboardButton(text="30000", callback_data="to_30000"),
+         InlineKeyboardButton(text="40000", callback_data="to_40000")],
+        [InlineKeyboardButton(text="50000", callback_data="to_50000"),
          InlineKeyboardButton(text="10000+", callback_data="to_10000")]
     ]
 )
@@ -275,12 +287,13 @@ async def price_from_callback_handler(callback: types.CallbackQuery, state: FSMC
 
 async def price_to_callback_handler(callback: types.CallbackQuery, state: FSMContext):
     price_to = callback.data.replace("to_", "")
+    await state.update_data(price_to=price_to)  
     data = await state.get_data()
     watch_name = data.get("watch_name")
     price_from = data.get("price_from")
-    await callback.message.answer(f"You have selected {watch_name} a range: from {price_from} to {price_to}.Do you want look /watches ?")
-
-    await state.clear()
+    await callback.message.answer(
+        f"You have selected {watch_name} a range: from {price_from} to {price_to}. Do you want look /watches ?"
+    )
     await callback.answer()
 
 
