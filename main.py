@@ -4,23 +4,24 @@ import asyncpg
 import requests
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from lxml import html
 from lxml.html import HtmlElement
 from selenium import webdriver
+
 from config import database, host, password, port, token, user
 
 url_omega = 'https://www.omegawatches.com/en-au/suggestions/omega-mens-watches'
-url_rolex = 'https://www.chrono24.com.au/rolex/index.htm'
+url_rolex = 'https://www.chrono24.com.au/rolex/index.html'
 url_Jaeger_LeCoultre = "https://www.jaeger-lecoultre.com/au-en/watches/all-watches"
 import time
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.fsm.context import FSMContext
-from aiogram import types
+
 import requests
-
-
-
+import undetected_chromedriver as uc
+from aiogram import types
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from lxml import html
 
 create_db = (
     """
@@ -113,30 +114,53 @@ def get_watches_omega(url):
     watches = remove_duplicates(watches)
     return watches
 
-
 def get_watches_rolex(url):
-    driver = webdriver.Chrome()
+    options = uc.ChromeOptions()
+    options.add_argument('--disable-gpu')
+    driver = uc.Chrome(options=options)
     driver.get(url)
+    try:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.support.ui import WebDriverWait
+        consent_btn = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, '//button[contains(@class, "js-cookie-accept-all")]'))
+        )
+        consent_btn.click()
+        time.sleep(2)
+    except Exception as e:
+        print("Cookie consent button not found or not clicked:", e)
+
+    for _ in range(10):
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(3)
+
     tree = html.fromstring(driver.page_source)
-    items = tree.xpath('//div[contains(@class, "js-carousel-cell")]')
+ 
+    cards = tree.xpath('//div[contains(@class, "text-sm text-sm-md text-bold text-ellipsis")]/ancestor::div[contains(@class, "d-flex align-items-center")]/parent::div')
     watches = []
-    for item in items:
-        brand = item.xpath('.//span[contains(@class, "d-block")]/text()')
-        brand = brand[0].strip() if brand else ''
-        model = item.xpath('.//strong/text()')
-        model = model[0].strip() if model else ''
-        price = item.xpath('.//p[contains(text(), "from AU$")]/text()')
+    for card in cards:
+
+        name = card.xpath('.//div[contains(@class, "text-sm text-sm-md text-bold text-ellipsis")]/text()')
+        name = name[0].strip() if name else ''
+
+        desc = card.xpath('.//div[contains(@class, "text-sm text-sm-md text-ellipsis m-b-2")]/text()')
+        desc = desc[0].strip() if desc else ''
+
+        price = card.xpath('.//span[@class="currency"]/following-sibling::text()')
         price = price[0].strip() if price else ''
-        if brand or model or price:
+        if name or desc or price:
             watches.append({
-                'brand': brand,
-                'model': model,
+                'name': name,
+                'characteristics': desc,
                 'price': price
             })
-    driver.quit()
+    try:
+        driver.quit()
+    except Exception:
+        pass
+    del driver
     return watches
-
-
 
 def get_watches_jlc(url):
     options = webdriver.ChromeOptions()
@@ -164,6 +188,7 @@ def get_watches_jlc(url):
     driver.quit()
     watches = remove_duplicates(watches)
     return watches
+
 
 
 async def show_choice_user(message: types.Message, state: FSMContext):
@@ -261,9 +286,9 @@ async def watch_callback_handler(callback: types.CallbackQuery, state: FSMContex
 
 price_from_kb = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="10000", callback_data="from_10000"),
-         InlineKeyboardButton(text="20000", callback_data="from_20000"),
-         InlineKeyboardButton(text="30000", callback_data="from_30000")],
+        [InlineKeyboardButton(text="1000", callback_data="from_1000"),
+         InlineKeyboardButton(text="2000", callback_data="from_2000"),
+         InlineKeyboardButton(text="3000", callback_data="from_3000")],
         [InlineKeyboardButton(text="40000", callback_data="from_40000"),
          InlineKeyboardButton(text="50000", callback_data="from_50000")]
     ]
@@ -271,8 +296,8 @@ price_from_kb = InlineKeyboardMarkup(
 
 price_to_kb = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="20000", callback_data="to_20000"),
-         InlineKeyboardButton(text="30000", callback_data="to_30000"),
+        [InlineKeyboardButton(text="2000", callback_data="to_2000"),
+         InlineKeyboardButton(text="3000", callback_data="to_3000"),
          InlineKeyboardButton(text="40000", callback_data="to_40000")],
         [InlineKeyboardButton(text="50000", callback_data="to_50000"),
          InlineKeyboardButton(text="10000+", callback_data="to_10000")]
@@ -306,6 +331,8 @@ async def main():
     #print(f"quantity: {len(watches)}")
     await create_tables()
 
+
+
     dp.message.register(start_handler, Command("start"))
     dp.callback_query.register(watch_callback_handler, lambda c: c.data.startswith("name_"))
 
@@ -317,6 +344,7 @@ async def main():
 
     end = time.perf_counter()
     print(f"execution time: {end - start:.6f} seconds")
+    #print(get_watches_rolex(url_rolex))
     await dp.start_polling(bot)
 if __name__ == "__main__":
     asyncio.run(main())
