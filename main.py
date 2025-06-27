@@ -1,12 +1,15 @@
 import asyncio
-
+import time
 import asyncpg
+
 import requests
+import undetected_chromedriver as uc
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from lxml import html
-from lxml.html import HtmlElement
 from selenium import webdriver
 
 from config import database, host, password, port, token, user
@@ -14,14 +17,6 @@ from config import database, host, password, port, token, user
 url_omega = 'https://www.omegawatches.com/en-au/suggestions/omega-mens-watches'
 url_rolex = 'https://www.chrono24.com.au/rolex/index.html'
 url_Jaeger_LeCoultre = "https://www.jaeger-lecoultre.com/au-en/watches/all-watches"
-import time
-
-import requests
-import undetected_chromedriver as uc
-from aiogram import types
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
-from lxml import html
 
 create_db = (
     """
@@ -220,11 +215,12 @@ async def show_choice_user(message: types.Message, state: FSMContext):
                 price = float(price_digits)
                 if float(price_from) <= price <= float(price_to):
                     if watch_name == "Rolex":
-                        msg = (
-                            f"Brand: {watch.get('brand', '')}\n"
-                            f"Model: {watch.get('model', '')}\n"
-                            f"Price: {watch.get('price', '')}"
-                        )
+                        if watch_name == "Rolex":
+                                msg = (
+                                    f"Name: {watch.get('name', '')}\n"
+                                    f"Characteristics: {watch.get('characteristics', '')}\n"
+                                    f"Price: {watch.get('price', '')}"
+                                )
                     else:
                         msg = (
                             f"Name: {watch.get('name', '')}\n"
