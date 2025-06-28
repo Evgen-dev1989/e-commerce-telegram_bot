@@ -221,9 +221,9 @@ async def show_choice_user(message: types.Message, state: FSMContext):
         await state.clear()
         return
 
-    # Сохраняем в state
     await state.update_data(filtered_watches=filtered, watches_index=0)
     await send_next_batch(message, state)
+
 
 async def send_next_batch(message: types.Message, state: FSMContext):
     data = await state.get_data()
@@ -234,15 +234,22 @@ async def send_next_batch(message: types.Message, state: FSMContext):
         await message.answer("No more watches.")
         await state.clear()
         return
-    msgs = []
-    for watch in batch:
+
+    for i, watch in enumerate(batch):
         msg = (
             f"Name: {watch.get('name', '')}\n"
             f"Characteristics: {watch.get('characteristics', '')}\n"
             f"Price: {watch.get('price', '')}"
         )
-        msgs.append(msg)
-    await message.answer('\n\n'.join(msgs))
+     
+        track_data = f"track_{index + i}"
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="Follow", callback_data=track_data)]
+            ]
+        )
+        await message.answer(msg, reply_markup=kb)
+
     index += 4
     await state.update_data(watches_index=index)
     if index < len(watches):
