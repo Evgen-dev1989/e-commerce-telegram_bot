@@ -1,7 +1,7 @@
 import asyncio
 import time
-import asyncpg
 
+import asyncpg
 import requests
 import undetected_chromedriver as uc
 from aiogram import Bot, Dispatcher, F, types
@@ -203,35 +203,57 @@ async def show_choice_user(message: types.Message, state: FSMContext):
     else:
         watches = get_watches_jlc(url_Jaeger_LeCoultre)
 
-    if not watches:
-        await message.answer("No watches found for your selection.")
-    else:
-        for watch in watches:
-            try:
-                price_str = watch.get('price', '')
-                price_digits = ''.join(c for c in price_str if c.isdigit() or c == '.')
-                if not price_digits:
-                    continue
-                price = float(price_digits)
-                if float(price_from) <= price <= float(price_to):
-                    if watch_name == "Rolex":
-                        if watch_name == "Rolex":
-                                msg = (
-                                    f"Name: {watch.get('name', '')}\n"
-                                    f"Characteristics: {watch.get('characteristics', '')}\n"
-                                    f"Price: {watch.get('price', '')}"
-                                )
-                    else:
-                        msg = (
-                            f"Name: {watch.get('name', '')}\n"
-                            f"Characteristics: {watch.get('characteristics', '')}\n"
-                            f"Price: {watch.get('price', '')}"
-                        )
-                    await message.answer(msg)
-            except ValueError:
-                print("Error converting price to float. Skipping this watch.")
+    filtered = []
+    for watch in watches:
+        try:
+            price_str = watch.get('price', '')
+            price_digits = ''.join(c for c in price_str if c.isdigit() or c == '.')
+            if not price_digits:
+                continue
+            price = float(price_digits)
+            if float(price_from) <= price <= float(price_to):
+                filtered.append(watch)
+        except ValueError:
+            continue
 
-    await state.clear()
+    if not filtered:
+        await message.answer("No watches found for your selection.")
+        await state.clear()
+        return
+
+    # Сохраняем в state
+    await state.update_data(filtered_watches=filtered, watches_index=0)
+    await send_next_batch(message, state)
+
+async def send_next_batch(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    watches = data.get("filtered_watches", [])
+    index = data.get("watches_index", 0)
+    batch = watches[index:index+4]
+    if not batch:
+        await message.answer("No more watches.")
+        await state.clear()
+        return
+    msgs = []
+    for watch in batch:
+        msg = (
+            f"Name: {watch.get('name', '')}\n"
+            f"Characteristics: {watch.get('characteristics', '')}\n"
+            f"Price: {watch.get('price', '')}"
+        )
+        msgs.append(msg)
+    await message.answer('\n\n'.join(msgs))
+    index += 4
+    await state.update_data(watches_index=index)
+    if index < len(watches):
+        await message.answer("Send /more to see more watches.")
+    else:
+        await message.answer("No more watches.")
+        await state.clear()
+
+
+
+
 
 
 
@@ -306,6 +328,7 @@ async def price_from_callback_handler(callback: types.CallbackQuery, state: FSMC
     await callback.message.answer("Choose price to:", reply_markup=price_to_kb)
     await callback.answer()
 
+
 async def price_to_callback_handler(callback: types.CallbackQuery, state: FSMContext):
     price_to = callback.data.replace("to_", "")
     await state.update_data(price_to=price_to)  
@@ -336,6 +359,7 @@ async def main():
     dp.callback_query.register(price_to_callback_handler, lambda c: c.data.startswith("to_"))
  
     dp.message.register(show_choice_user, Command("watches"))
+    dp.message.register(send_next_batch, Command("more"))
     dp.message.register(user_data_handler)
 
     end = time.perf_counter()
