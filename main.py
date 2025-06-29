@@ -17,7 +17,7 @@ from config import database, host, password, port, token, user
 url_omega = 'https://www.omegawatches.com/en-au/suggestions/omega-mens-watches'
 url_rolex = 'https://www.chrono24.com.au/rolex/index.html'
 url_Jaeger_LeCoultre = "https://www.jaeger-lecoultre.com/au-en/watches/all-watches"
-
+dp = Dispatcher()
 create_db = (
     """
     CREATE TABLE IF NOT EXISTS users(
@@ -259,7 +259,43 @@ async def send_next_batch(message: types.Message, state: FSMContext):
         await state.clear()
 
 
+@dp.callback_query(lambda c: c.data.startswith("track_"))
+async def track_watch_callback(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    watches = data.get("filtered_watches", [])
+    # Получаем индекс из callback_data
+    idx = int(callback.data.replace("track_", ""))
+    if 0 <= idx < len(watches):
+        watch = watches[idx]
+        conn = None
+        try:
+            conn = await connect_db()
+            user = callback.from_user
+            user_id = user.id
+            watch_name = watch.get('name', '')
+            price = watch.get('price', '')
+            characteristics = watch.get('characteristics', '')
 
+            insert_query = """
+                INSERT INTO watches(user_id, watch_name, price, characteristics) 
+                VALUES (NOW(), $1, $2, $3, $4);
+                """
+            await conn.execute(insert_query,user_id, watch_name, price, characteristics)
+
+        
+        except asyncpg.PostgresError as e:
+            print(f"Database error: {str(e)}")
+        finally:
+            if conn is not None:
+                await conn.close()
+
+        await callback.message.answer(
+            f"Вы добавили в отслеживание:\n"
+            f"Name: {watch.get('name', '')}\n"
+            f"Characteristics: {watch.get('characteristics', '')}\n"
+            f"Price: {watch.get('price', '')}"
+        )
+    await callback.answer("Added to watchlist!")
 
 
 
@@ -288,7 +324,7 @@ async def user_data_handler(message: types.Message) -> None:
             """
             await conn.execute(insert_query, user_id, user_name, first_name, last_name)
 
-        #await message.answer(f"Hello {first_name}. Do you want to choose a watch??")
+       
     except asyncpg.PostgresError as e:
         print(f"Database error: {str(e)}")
     finally:
@@ -352,12 +388,10 @@ async def main():
     start = time.perf_counter()
 
     bot = Bot(token=token)
-    dp = Dispatcher()
+
 
     #print(f"quantity: {len(watches)}")
     await create_tables()
-
-
 
     dp.message.register(start_handler, Command("start"))
     dp.callback_query.register(watch_callback_handler, lambda c: c.data.startswith("name_"))
@@ -367,6 +401,7 @@ async def main():
  
     dp.message.register(show_choice_user, Command("watches"))
     dp.message.register(send_next_batch, Command("more"))
+    dp.callback_query.register(track_watch_callback, lambda c: c.data.startswith("track_"))
     dp.message.register(user_data_handler)
 
     end = time.perf_counter()
