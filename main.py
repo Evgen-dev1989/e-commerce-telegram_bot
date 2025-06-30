@@ -11,6 +11,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from lxml import html
 from selenium import webdriver
+from collections import defaultdict
 
 from config import database, host, password, port, token, user
 
@@ -263,7 +264,6 @@ async def send_next_batch(message: types.Message, state: FSMContext):
 async def track_watch_callback(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     watches = data.get("filtered_watches", [])
-    # Получаем индекс из callback_data
     idx = int(callback.data.replace("track_", ""))
     if 0 <= idx < len(watches):
         watch = watches[idx]
@@ -296,6 +296,57 @@ async def track_watch_callback(callback: types.CallbackQuery, state: FSMContext)
             f"Price: {watch.get('price', '')}"
         )
     await callback.answer("Added to watchlist!")
+
+
+
+
+async def check_track_watches(user_id, bot):
+    conn = None
+    try:
+        conn = await connect_db()
+        db_watches = await conn.fetch('SELECT id, watch_name, price, characteristics FROM watches WHERE user_id = $1', user_id)
+
+        brands = defaultdict(list)
+        for db_watch in db_watches:
+            brands[db_watch['watch_name']].append(db_watch)
+
+
+        actual_data = {
+            "Omega": get_watches_omega(url_omega),
+            "Rolex": get_watches_rolex(url_rolex),
+            "Jaeger-LeCoultre": get_watches_jlc(url_Jaeger_LeCoultre)
+        }
+
+        for brand, watches in brands.items():
+            actual_watches = actual_data[brand]
+            for db_watch in watches:
+                actual = next((w for w in actual_watches if w['name'] == db_watch['watch_name']), None)
+                if not actual:
+                    continue
+
+                updates = []
+                if db_watch['price'] != actual['price']:
+                    await conn.execute('UPDATE watches SET price = $1 WHERE id = $2', actual['price'], db_watch['id'])
+                    updates.append(f"Price changed: {db_watch['price']} → {actual['price']}")
+                if db_watch['characteristics'] != actual['characteristics']:
+                    await conn.execute('UPDATE watches SET characteristics = $1 WHERE id = $2', actual['characteristics'], db_watch['id'])
+                    updates.append(f"Characteristics changed: {db_watch['characteristics']} → {actual['characteristics']}")
+
+                if updates:
+                    msg = f"Watch '{db_watch['watch_name']}' updated:\n" + "\n".join(updates)
+                    await bot.send_message(user_id, msg)
+
+    except asyncpg.PostgresError as e:
+        print(f"Database error: {str(e)}")
+    finally:
+        if conn is not None:
+            await conn.close()
+
+
+
+
+
+
 
 
 
@@ -403,6 +454,14 @@ async def main():
     dp.message.register(send_next_batch, Command("more"))
     dp.callback_query.register(track_watch_callback, lambda c: c.data.startswith("track_"))
     dp.message.register(user_data_handler)
+
+    conn = await connect_db()
+    user_ids = await conn.fetch('SELECT user_id FROM users')
+    await conn.close()
+
+    for record in user_ids:
+        await check_track_watches(record['user_id'], bot)
+
 
     end = time.perf_counter()
     print(f"execution time: {end - start:.6f} seconds")
