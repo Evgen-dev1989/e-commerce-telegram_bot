@@ -268,19 +268,28 @@ async def track_watch_callback(callback: types.CallbackQuery, state: FSMContext)
     if 0 <= idx < len(watches):
         watch = watches[idx]
         conn = None
-        try:
+        try:    
             conn = await connect_db()
             user = callback.from_user
             user_id = user.id
+
+            record = await conn.fetchval(
+                'SELECT 1 FROM watches WHERE user_id = $1 AND watch_name = $2',
+                user_id, watch_name
+            )
+            if record:
+                await callback.message.answer("You are already tracking this watch.")
+                return
+            
             watch_name = watch.get('name', '')
             price = watch.get('price', '')
             characteristics = watch.get('characteristics', '')
 
             insert_query = """
                 INSERT INTO watches(user_id, watch_name, price, characteristics) 
-                VALUES (NOW(), $1, $2, $3, $4);
+                VALUES ($1, $2, $3, $4);
                 """
-            await conn.execute(insert_query,user_id, watch_name, price, characteristics)
+            await conn.execute(insert_query, user_id, watch_name, price, characteristics)
 
         
         except asyncpg.PostgresError as e:
@@ -290,7 +299,7 @@ async def track_watch_callback(callback: types.CallbackQuery, state: FSMContext)
                 await conn.close()
 
         await callback.message.answer(
-            f"Вы добавили в отслеживание:\n"
+            f"You have added to tracking:\n"
             f"Name: {watch.get('name', '')}\n"
             f"Characteristics: {watch.get('characteristics', '')}\n"
             f"Price: {watch.get('price', '')}"
@@ -341,12 +350,6 @@ async def check_track_watches(user_id, bot):
     finally:
         if conn is not None:
             await conn.close()
-
-
-
-
-
-
 
 
 
