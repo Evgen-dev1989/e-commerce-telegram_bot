@@ -1,5 +1,7 @@
 import asyncio
+import logging
 import time
+from collections import defaultdict
 
 import asyncpg
 import requests
@@ -11,14 +13,25 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from lxml import html
 from selenium import webdriver
-from collections import defaultdict
 
 from config import database, host, password, port, token, user
+
+logging.basicConfig(
+    level=logging.INFO,  
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler("bot.log", encoding="utf-8"),  
+        logging.StreamHandler() 
+    ]
+)
 
 url_omega = 'https://www.omegawatches.com/en-au/suggestions/omega-mens-watches'
 url_rolex = 'https://www.chrono24.com.au/rolex/index.html'
 url_Jaeger_LeCoultre = "https://www.jaeger-lecoultre.com/au-en/watches/all-watches"
+
 dp = Dispatcher()
+
+
 create_db = (
     """
     CREATE TABLE IF NOT EXISTS users(
@@ -55,6 +68,8 @@ async def create_tables():
 
 
 async def keyboard_handler(message: types.Message):
+
+    logging.info("User select an option")
     await message.answer("Select an option:", reply_markup=name_watches)
 
 
@@ -75,6 +90,7 @@ async def command_execute(command, arguments = None):
             await conn.execute(command)
 
     except asyncpg.PostgresError as e:
+        logging.error(f"Database error: {e}")
         raise e
     
     finally:
@@ -92,20 +108,22 @@ def remove_duplicates(watches):
     return unique
 
 def get_watches_omega(url):
-    response = requests.get(url)
-    tree = html.fromstring(response.content)
-    items = tree.xpath('//li[contains(@class, "product-item")]')
     watches = []
-    for item in items:
-        name = item.xpath('.//p[contains(@class, "collection")]/text()')
-        price = item.xpath('.//span[@class="price"]/text()')
-        characteristics = item.xpath('.//p[contains(@class, "name")]/text()')
-        #print(f"Name: {name}, Price: {price}, Characteristics: {characteristics}")
-        watches.append({
-            'name': name[0].strip() if name else '',
-            'price': price[0].strip() if price else '',
-            'characteristics': characteristics[0].strip() if characteristics else ''
-        })
+    try:
+        response = requests.get(url)
+        tree = html.fromstring(response.content)
+        items = tree.xpath('//li[contains(@class, "product-item")]')
+        for item in items:
+            name = item.xpath('.//p[contains(@class, "collection")]/text()')
+            price = item.xpath('.//span[@class="price"]/text()')
+            characteristics = item.xpath('.//p[contains(@class, "name")]/text()')
+            watches.append({
+                'name': name[0].strip() if name else '',
+                'price': price[0].strip() if price else '',
+                'characteristics': characteristics[0].strip() if characteristics else ''
+            })
+    except Exception as e:
+        logging.error(f"watches_omega error: {e}")
 
     watches = remove_duplicates(watches)
     return watches
@@ -125,7 +143,7 @@ def get_watches_rolex(url):
         consent_btn.click()
         time.sleep(2)
     except Exception as e:
-        print("Cookie consent button not found or not clicked:", e)
+        logging.error(f" selenium watches_rolex error: {e}")
 
     for _ in range(10):
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
@@ -158,29 +176,33 @@ def get_watches_rolex(url):
     return watches
 
 def get_watches_jlc(url):
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    options.add_argument('--disable-gpu')
-    driver = webdriver.Chrome(options=options)
-    driver.get(url)
-    time.sleep(5)
-    tree = html.fromstring(driver.page_source)
-    items = tree.xpath('//div[contains(@class, "product-card") and @data-cy="mixed-grid-item"]')
     watches = []
-    for item in items:
-        name = item.xpath('.//h5[contains(@class, "product-card__name")]/text()')
-        name = name[0].strip() if name else ''
-        characteristics = item.xpath('.//div[contains(@class, "product-card__specs")]/text()')
-        characteristics = characteristics[0].strip() if characteristics else ''
-        price = item.xpath('.//span[@data-price="value"]/text()')
-        price = price[0].strip() if price else ''
-        if name or characteristics or price:
-            watches.append({
-                'name': name,
-                'characteristics': characteristics,
-                'price': price
-            })
-    driver.quit()
+    try:
+        options = webdriver.ChromeOptions()
+        options.add_argument('--headless')
+        options.add_argument('--disable-gpu')
+        driver = webdriver.Chrome(options=options)
+        driver.get(url)
+        time.sleep(5)
+        tree = html.fromstring(driver.page_source)
+        items = tree.xpath('//div[contains(@class, "product-card") and @data-cy="mixed-grid-item"]')
+        for item in items:
+            name = item.xpath('.//h5[contains(@class, "product-card__name")]/text()')
+            name = name[0].strip() if name else ''
+            characteristics = item.xpath('.//div[contains(@class, "product-card__specs")]/text()')
+            characteristics = characteristics[0].strip() if characteristics else ''
+            price = item.xpath('.//span[@data-price="value"]/text()')
+            price = price[0].strip() if price else ''
+            if name or characteristics or price:
+                watches.append({
+                    'name': name,
+                    'characteristics': characteristics,
+                    'price': price
+                })
+        driver.quit()
+    except Exception as e:
+        logging.error(f"watches_jlc error: {e}")   
+
     watches = remove_duplicates(watches)
     return watches
 
@@ -214,6 +236,9 @@ async def show_choice_user(message: types.Message, state: FSMContext):
             if float(price_from) <= price <= float(price_to):
                 filtered.append(watch)
         except ValueError:
+            continue
+        except Exception as e:
+            logging.error(f"Unexpected error in price filtering: {e}")
             continue
 
     if not filtered:
@@ -292,7 +317,7 @@ async def track_watch_callback(callback: types.CallbackQuery, state: FSMContext)
 
         
         except asyncpg.PostgresError as e:
-            print(f"Database error: {str(e)}")
+            logging.error(f" track_watch_callback DB error: {e}")
         finally:
             if conn is not None:
                 await conn.close()
@@ -345,7 +370,7 @@ async def check_track_watches(user_id, bot):
                     await bot.send_message(user_id, msg)
 
     except asyncpg.PostgresError as e:
-        print(f"Database error: {str(e)}")
+        logging.error(f"check_track_watches error: {e}")
     finally:
         if conn is not None:
             await conn.close()
@@ -354,6 +379,7 @@ async def check_track_watches(user_id, bot):
 
 
 async def start_handler(message: types.Message, state: FSMContext):
+
     await message.answer("Welcome to the Omega Watches Bot! Choose a watch:")
     await message.answer("Choose watch:", reply_markup=name_watches)
     await state.set_state(WatchStates.waiting_for_watch_name)
@@ -379,7 +405,8 @@ async def user_data_handler(message: types.Message) -> None:
 
        
     except asyncpg.PostgresError as e:
-        print(f"Database error: {str(e)}")
+        logging.error(f"Database error: {e}")
+
     finally:
         if conn is not None:
             await conn.close()
@@ -447,8 +474,10 @@ async def watches_update_scheduler(bot):
             await conn.close()
             for record in user_ids:
                 await check_track_watches(record['user_id'], bot)
+                
         except Exception as e:
-            print(f"Scheduler error: {e}")
+            logging.error(f"Scheduler error: {e}")
+        
         await asyncio.sleep(3600)  
 
 async def main():
@@ -480,3 +509,5 @@ async def main():
     await dp.start_polling(bot)
 if __name__ == "__main__":
     asyncio.run(main())
+
+
