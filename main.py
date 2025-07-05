@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import time
 from collections import defaultdict
 
@@ -11,10 +12,18 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from dotenv import load_dotenv
 from lxml import html
 from selenium import webdriver
 
-from config import database, host, password, port, token, user
+load_dotenv()
+
+token = os.getenv("token")
+user = os.getenv("user")
+password = os.getenv("password")
+database = os.getenv("database")
+host = os.getenv("host")
+port = os.getenv("port")
 
 logging.basicConfig(
     level=logging.INFO,  
@@ -509,5 +518,3 @@ async def main():
     await dp.start_polling(bot)
 if __name__ == "__main__":
     asyncio.run(main())
-
-
