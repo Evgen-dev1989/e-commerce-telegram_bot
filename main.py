@@ -155,7 +155,6 @@ def get_watches_rolex(url):
         driver.quit()
     except Exception:
         pass
-    del driver
     return watches
 
 def get_watches_jlc(url):
@@ -438,6 +437,20 @@ async def price_to_callback_handler(callback: types.CallbackQuery, state: FSMCon
     await callback.answer()
 
 
+
+
+async def watches_update_scheduler(bot):
+    while True:
+        try:
+            conn = await connect_db()
+            user_ids = await conn.fetch('SELECT user_id FROM users')
+            await conn.close()
+            for record in user_ids:
+                await check_track_watches(record['user_id'], bot)
+        except Exception as e:
+            print(f"Scheduler error: {e}")
+        await asyncio.sleep(3600)  
+
 async def main():
     start = time.perf_counter()
 
@@ -458,12 +471,7 @@ async def main():
     dp.callback_query.register(track_watch_callback, lambda c: c.data.startswith("track_"))
     dp.message.register(user_data_handler)
 
-    conn = await connect_db()
-    user_ids = await conn.fetch('SELECT user_id FROM users')
-    await conn.close()
-
-    for record in user_ids:
-        await check_track_watches(record['user_id'], bot)
+    asyncio.create_task(watches_update_scheduler(bot))
 
 
     end = time.perf_counter()
