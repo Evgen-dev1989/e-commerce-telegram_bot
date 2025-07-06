@@ -54,6 +54,7 @@ create_db = (
     """,
     """
     CREATE TABLE IF NOT EXISTS watches (
+       
         user_id BIGINT,
         watch_name VARCHAR(250),
         price VARCHAR(50),
@@ -64,7 +65,9 @@ create_db = (
             ON UPDATE CASCADE
             ON DELETE CASCADE
     )
-    """
+    """#,    """ ALTER TABLE watches ADD COLUMN id SERIAL PRIMARY KEY;"""
+
+
 )
 
 class WatchStates(StatesGroup):
@@ -159,25 +162,27 @@ def get_watches_rolex(url):
         time.sleep(3)
 
     tree = html.fromstring(driver.page_source)
- 
-    cards = tree.xpath('//div[contains(@class, "text-sm text-sm-md text-bold text-ellipsis")]/ancestor::div[contains(@class, "d-flex align-items-center")]/parent::div')
-    watches = []
-    for card in cards:
+    try:
+        cards = tree.xpath('//div[contains(@class, "text-sm text-sm-md text-bold text-ellipsis")]/ancestor::div[contains(@class, "d-flex align-items-center")]/parent::div')
+        watches = []
+        for card in cards:
 
-        name = card.xpath('.//div[contains(@class, "text-sm text-sm-md text-bold text-ellipsis")]/text()')
-        name = name[0].strip() if name else ''
+            name = card.xpath('.//div[contains(@class, "text-sm text-sm-md text-bold text-ellipsis")]/text()')
+            name = name[0].strip() if name else ''
 
-        desc = card.xpath('.//div[contains(@class, "text-sm text-sm-md text-ellipsis m-b-2")]/text()')
-        desc = desc[0].strip() if desc else ''
+            desc = card.xpath('.//div[contains(@class, "text-sm text-sm-md text-ellipsis m-b-2")]/text()')
+            desc = desc[0].strip() if desc else ''
 
-        price = card.xpath('.//span[@class="currency"]/following-sibling::text()')
-        price = price[0].strip() if price else ''
-        if name or desc or price:
-            watches.append({
-                'name': name,
-                'characteristics': desc,
-                'price': price
-            })
+            price = card.xpath('.//span[@class="currency"]/following-sibling::text()')
+            price = price[0].strip() if price else ''
+            if name or desc or price:
+                watches.append({
+                    'name': name,
+                    'characteristics': desc,
+                    'price': price
+                })
+    except Exception as e:
+        logging.error(f"watches_rolex error: {e}")
     try:
         driver.quit()
     except Exception:
@@ -305,6 +310,7 @@ async def track_watch_callback(callback: types.CallbackQuery, state: FSMContext)
             conn = await connect_db()
             user = callback.from_user
             user_id = user.id
+            watch_name = watch.get('name', '')
 
             record = await conn.fetchval(
                 'SELECT 1 FROM watches WHERE user_id = $1 AND watch_name = $2',
@@ -360,6 +366,9 @@ async def check_track_watches(user_id, bot):
         }
 
         for brand, watches in brands.items():
+            if brand not in actual_data:
+                logging.warning(f"Unsupported brand in DB: {brand}")
+                continue
             actual_watches = actual_data[brand]
             for db_watch in watches:
                 actual = next((w for w in actual_watches if w['name'] == db_watch['watch_name']), None)
@@ -509,12 +518,13 @@ async def main():
     dp.callback_query.register(track_watch_callback, lambda c: c.data.startswith("track_"))
     dp.message.register(user_data_handler)
 
-    asyncio.create_task(watches_update_scheduler(bot))
+    #asyncio.create_task(watches_update_scheduler(bot))
 
 
     end = time.perf_counter()
     print(f"execution time: {end - start:.6f} seconds")
-    #print(get_watches_rolex(url_rolex))
+
     await dp.start_polling(bot)
 if __name__ == "__main__":
+    
     asyncio.run(main())
