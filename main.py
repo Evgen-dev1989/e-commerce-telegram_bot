@@ -103,6 +103,43 @@ async def start_handler(message: types.Message, state: FSMContext):
 
 
 
+async def favorite_watches(event, state: FSMContext):
+    conn = None
+    try:
+        conn = await connect_db()
+        # Определяем user_id для Message и CallbackQuery
+        if isinstance(event, types.CallbackQuery):
+            user = event.from_user
+            send = event.message.answer
+        else:  # types.Message
+            user = event.from_user
+            send = event.answer
+
+        user_id = user.id
+
+        records = await conn.fetch(
+            'SELECT watch_name, price, characteristics FROM watches WHERE user_id = $1',
+            user_id
+        )
+
+        if not records:
+            await send("You don't have any favorite watches.")
+            return
+
+        msg = "Your favorite watches:\n"
+        for watch in records:
+            msg += (
+                f"\nName: {watch['watch_name']}\n"
+                f"Characteristics: {watch['characteristics']}\n"
+                f"Price: {watch['price']}\n"
+            )
+        await send(msg)
+
+    except asyncpg.PostgresError as e:
+        logging.error(f"favorite_watch_callback DB error: {e}")
+    finally:
+        if conn is not None:
+            await conn.close()
 
 
 async def create_tables():
@@ -114,7 +151,11 @@ async def keyboard_handler(message: types.Message):
 
     logging.info("User select an option")
     await message.answer("Select an option:", reply_markup=name_watches)
-
+    if message.text == "Show my favorite watches":
+        await favorite_watches(message, None)
+    elif message.text == "Delete watch":
+        await message.answer("Please select a watch to delete.", reply_markup=name_watches)
+        await message.answer("You can also use /watches to see available watches.")
 
 
 async def connect_db():
@@ -139,6 +180,7 @@ async def command_execute(command, arguments = None):
     finally:
         if conn is not None:  
             await conn.close()
+
 
 def remove_duplicates(watches):
     unique = []
@@ -376,9 +418,6 @@ async def track_watch_callback(callback: types.CallbackQuery, state: FSMContext)
         )
     await callback.answer("Added to watchlist!")
 
-
-
-
 async def check_track_watches(user_id, bot):
     conn = None
     try:
@@ -534,6 +573,10 @@ async def main():
     dp.message.register(show_choice_user, Command("watches"))
     dp.message.register(send_next_batch, Command("more"))
     dp.callback_query.register(track_watch_callback, lambda c: c.data.startswith("track_"))
+    dp.callback_query.register(favorite_watches, lambda c: c.data.startswith("favorite_"))
+    dp.message.register(keyboard_handler, F.text == "Show my favorite watches")
+    dp.message.register(keyboard_handler, F.text == "Delete watch")
+    
     dp.message.register(user_data_handler)
 
     #asyncio.create_task(watches_update_scheduler(bot))
