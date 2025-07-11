@@ -11,7 +11,7 @@ from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from dotenv import load_dotenv
 from lxml import html
 from selenium import webdriver
@@ -40,6 +40,9 @@ url_Jaeger_LeCoultre = "https://www.jaeger-lecoultre.com/au-en/watches/all-watch
 
 dp = Dispatcher()
 
+class WatchStates(StatesGroup):
+    waiting_for_watch_name = State()
+    waiting_for_watch_price = State()
 
 create_db = (
     """
@@ -70,9 +73,37 @@ create_db = (
 
 )
 
-class WatchStates(StatesGroup):
-    waiting_for_watch_name = State()
-    waiting_for_watch_price = State()
+
+main_menu_kb = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="Show my favorite watches")],
+        [KeyboardButton(text="Delete watch")],
+    ],
+    resize_keyboard=True,  
+    one_time_keyboard=False  
+)
+
+
+name_watches = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="Omega", callback_data="name_Omega")],
+        [InlineKeyboardButton(text="Rolex", callback_data="name_Rolex")],
+        [InlineKeyboardButton(text="Jaeger-LeCoultre", callback_data="name_Jaeger-LeCoultre")],
+    ]
+)
+
+
+async def start_handler(message: types.Message, state: FSMContext):
+
+    await message.answer("Welcome to the Watches Bot! Choose a watch:")
+    await message.answer("Choose watch:", reply_markup=name_watches)
+    await state.set_state(WatchStates.waiting_for_watch_name)
+    await message.answer("and select an action:", reply_markup=main_menu_kb)
+    await state.set_state(WatchStates.waiting_for_watch_name)
+
+
+
+
 
 async def create_tables():
     for command in create_db:
@@ -396,11 +427,6 @@ async def check_track_watches(user_id, bot):
 
 
 
-async def start_handler(message: types.Message, state: FSMContext):
-
-    await message.answer("Welcome to the Omega Watches Bot! Choose a watch:")
-    await message.answer("Choose watch:", reply_markup=name_watches)
-    await state.set_state(WatchStates.waiting_for_watch_name)
 
 async def user_data_handler(message: types.Message) -> None:
     conn = None
@@ -429,13 +455,6 @@ async def user_data_handler(message: types.Message) -> None:
         if conn is not None:
             await conn.close()
 
-name_watches = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [InlineKeyboardButton(text="Omega", callback_data="name_Omega")],
-        [InlineKeyboardButton(text="Rolex", callback_data="name_Rolex")],
-        [InlineKeyboardButton(text="Jaeger-LeCoultre", callback_data="name_Jaeger-LeCoultre")],
-    ]
-)
 
 async def watch_callback_handler(callback: types.CallbackQuery, state: FSMContext):
     name = callback.data.replace("name_", "")
@@ -481,9 +500,6 @@ async def price_to_callback_handler(callback: types.CallbackQuery, state: FSMCon
     )
     await callback.answer()
 
-
-
-
 async def watches_update_scheduler(bot):
     while True:
         try:
@@ -497,6 +513,8 @@ async def watches_update_scheduler(bot):
             logging.error(f"Scheduler error: {e}")
         
         await asyncio.sleep(3600)  
+
+
 
 async def main():
     start = time.perf_counter()
