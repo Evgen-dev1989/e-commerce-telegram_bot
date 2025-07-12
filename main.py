@@ -73,6 +73,10 @@ create_db = (
 
 )
 
+async def create_tables():
+    for command in create_db:
+        await command_execute(command)
+
 
 main_menu_kb = ReplyKeyboardMarkup(
     keyboard=[
@@ -107,11 +111,11 @@ async def favorite_watches(event, state: FSMContext):
     conn = None
     try:
         conn = await connect_db()
-        # Определяем user_id для Message и CallbackQuery
+    
         if isinstance(event, types.CallbackQuery):
             user = event.from_user
             send = event.message.answer
-        else:  # types.Message
+        else:  
             user = event.from_user
             send = event.answer
 
@@ -142,9 +146,42 @@ async def favorite_watches(event, state: FSMContext):
             await conn.close()
 
 
-async def create_tables():
-    for command in create_db:
-        await command_execute(command)
+async def delete_favorite_watches(event, state: FSMContext):
+    conn = None
+    try:
+        conn = await connect_db()
+
+        if isinstance(event, types.CallbackQuery):
+            user = event.from_user
+            send = event.message.answer
+        else:
+            user = event.from_user
+            send = event.answer
+
+        user_id = user.id
+
+        records = await conn.fetch(
+            'SELECT watch_name FROM watches WHERE user_id = $1',
+            user_id
+        )
+
+        if not records:
+            await send("You don't have any favorite watches.")
+            return
+
+        await conn.execute(
+            'DELETE FROM watches WHERE user_id = $1',
+            user_id
+        )
+
+        await send("All your favorite watches have been deleted.")
+
+    except asyncpg.PostgresError as e:
+        logging.error(f"favorite_watch_callback DB error: {e}")
+    finally:
+        if conn is not None:
+            await conn.close()
+
 
 
 async def keyboard_handler(message: types.Message):
@@ -153,10 +190,9 @@ async def keyboard_handler(message: types.Message):
     await message.answer("Select an option:", reply_markup=name_watches)
     if message.text == "Show my favorite watches":
         await favorite_watches(message, None)
-    elif message.text == "Delete watch":
-        await message.answer("Please select a watch to delete.", reply_markup=name_watches)
-        await message.answer("You can also use /watches to see available watches.")
-
+    elif message.text == "Delete all watch":
+        await delete_favorite_watches(message, None)
+   
 
 async def connect_db():
 
