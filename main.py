@@ -77,6 +77,33 @@ async def create_tables():
     for command in create_db:
         await command_execute(command)
 
+async def user_data_handler(message: types.Message) -> None:
+    conn = None
+    try:
+        conn = await connect_db()
+        user = message.from_user
+        user_id = user.id
+        first_name = user.first_name
+        last_name = user.last_name
+        user_name = user.username
+
+        record = await conn.fetchval('SELECT user_id FROM users WHERE user_id = $1', user_id)
+
+        if record is None:
+            insert_query = """
+            INSERT INTO users(time, user_id, user_name, first_name, last_name) 
+            VALUES (NOW(), $1, $2, $3, $4);
+            """
+            await conn.execute(insert_query, user_id, user_name, first_name, last_name)
+
+       
+    except asyncpg.PostgresError as e:
+        logging.error(f"Database error: {e}")
+
+    finally:
+        if conn is not None:
+            await conn.close()
+
 
 main_menu_kb = ReplyKeyboardMarkup(
     keyboard=[
@@ -104,8 +131,6 @@ async def start_handler(message: types.Message, state: FSMContext):
     await state.set_state(WatchStates.waiting_for_watch_name)
     await message.answer("and select an action:", reply_markup=main_menu_kb)
     await state.set_state(WatchStates.waiting_for_watch_name)
-
-
 
 async def favorite_watches(event, state: FSMContext):
     conn = None
@@ -146,6 +171,12 @@ async def favorite_watches(event, state: FSMContext):
             await conn.close()
 
 
+
+
+
+
+
+
 async def delete_favorite_watches(event, state: FSMContext):
     conn = None
     try:
@@ -182,8 +213,6 @@ async def delete_favorite_watches(event, state: FSMContext):
         if conn is not None:
             await conn.close()
 
-
-
 async def keyboard_handler(message: types.Message):
 
     logging.info("User select an option")
@@ -194,10 +223,11 @@ async def keyboard_handler(message: types.Message):
         await delete_favorite_watches(message, None)
    
 
+
+
 async def connect_db():
 
     return await asyncpg.connect(user=user, password=password, database=database, host=host, port=port)
-
 
 async def command_execute(command, arguments = None):
 
@@ -216,6 +246,8 @@ async def command_execute(command, arguments = None):
     finally:
         if conn is not None:  
             await conn.close()
+
+
 
 
 def remove_duplicates(watches):
@@ -503,32 +535,6 @@ async def check_track_watches(user_id, bot):
 
 
 
-async def user_data_handler(message: types.Message) -> None:
-    conn = None
-    try:
-        conn = await connect_db()
-        user = message.from_user
-        user_id = user.id
-        first_name = user.first_name
-        last_name = user.last_name
-        user_name = user.username
-
-        record = await conn.fetchval('SELECT user_id FROM users WHERE user_id = $1', user_id)
-
-        if record is None:
-            insert_query = """
-            INSERT INTO users(time, user_id, user_name, first_name, last_name) 
-            VALUES (NOW(), $1, $2, $3, $4);
-            """
-            await conn.execute(insert_query, user_id, user_name, first_name, last_name)
-
-       
-    except asyncpg.PostgresError as e:
-        logging.error(f"Database error: {e}")
-
-    finally:
-        if conn is not None:
-            await conn.close()
 
 
 async def watch_callback_handler(callback: types.CallbackQuery, state: FSMContext):
@@ -536,6 +542,8 @@ async def watch_callback_handler(callback: types.CallbackQuery, state: FSMContex
     await state.update_data(watch_name=name)
     await callback.message.answer("Choose price from:", reply_markup=price_from_kb)
     await callback.answer()
+
+
 
 price_from_kb = InlineKeyboardMarkup(
     inline_keyboard=[
@@ -563,7 +571,6 @@ async def price_from_callback_handler(callback: types.CallbackQuery, state: FSMC
     await callback.message.answer("Choose price to:", reply_markup=price_to_kb)
     await callback.answer()
 
-
 async def price_to_callback_handler(callback: types.CallbackQuery, state: FSMContext):
     price_to = callback.data.replace("to_", "")
     await state.update_data(price_to=price_to)  
@@ -574,6 +581,8 @@ async def price_to_callback_handler(callback: types.CallbackQuery, state: FSMCon
         f"You have selected {watch_name} a range: from {price_from} to {price_to}. Do you want look /watches ?"
     )
     await callback.answer()
+
+
 
 async def watches_update_scheduler(bot):
     while True:
