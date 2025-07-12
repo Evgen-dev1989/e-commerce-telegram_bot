@@ -118,9 +118,9 @@ async def favorite_watches(event, state: FSMContext):
         else:  
             user = event.from_user
             send = event.answer
-
         user_id = user.id
 
+        logging.info(f"Fetching watches for user_id={user_id}")
         records = await conn.fetch(
             'SELECT watch_name, price, characteristics FROM watches WHERE user_id = $1',
             user_id
@@ -168,7 +168,7 @@ async def delete_favorite_watches(event, state: FSMContext):
         if not records:
             await send("You don't have any favorite watches.")
             return
-
+        logging.info(f"Deleting watches for user_id={user_id}")
         await conn.execute(
             'DELETE FROM watches WHERE user_id = $1',
             user_id
@@ -190,7 +190,7 @@ async def keyboard_handler(message: types.Message):
     await message.answer("Select an option:", reply_markup=name_watches)
     if message.text == "Show my favorite watches":
         await favorite_watches(message, None)
-    elif message.text == "Delete all watch":
+    elif message.text == "Delete watch":
         await delete_favorite_watches(message, None)
    
 
