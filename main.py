@@ -183,7 +183,7 @@ async def favorite_watches(event, state: FSMContext):
 
 
 async def search_watches(message: types.Message, state: FSMContext):
-    await message.answer("Please write a watch brand:")
+    await message.answer("write the name of the watch you want to find:")
     await state.set_state(WatchStates.waiting_for_watch_name)
 
 
@@ -199,7 +199,12 @@ async def brand_input_handler(message: types.Message, state: FSMContext):
             "Jaeger-LeCoultre": get_watches_jlc(url_Jaeger_LeCoultre)
         }
 
-        watches = actual_data.get(watch_name)
+        brand = next((b for b in actual_data if b.lower() == watch_name.lower()), None)
+        if not brand:
+            await message.answer("No watches found for your selection.")
+            return
+
+        watches = actual_data[brand]
         if not watches:
             await message.answer("No watches found for your selection.")
             return
@@ -645,6 +650,7 @@ async def main():
     await create_tables()
 
     dp.message.register(start_handler, Command("start"))
+    dp.message.register(brand_input_handler, WatchStates.waiting_for_watch_name)
     dp.callback_query.register(watch_callback_handler, lambda c: c.data.startswith("name_"))
 
     dp.callback_query.register(price_from_callback_handler, lambda c: c.data.startswith("from_"))
@@ -652,7 +658,6 @@ async def main():
  
     dp.message.register(show_choice_user, Command("watches"))
     dp.message.register(send_next_batch, Command("more"))
-    dp.message.register(brand_input_handler, WatchStates.waiting_for_watch_name)
     dp.callback_query.register(track_watch_callback, lambda c: c.data.startswith("track_"))
     dp.callback_query.register(favorite_watches, lambda c: c.data.startswith("favorite_"))
     dp.message.register(keyboard_handler, F.text == "Show my favorite watches")
