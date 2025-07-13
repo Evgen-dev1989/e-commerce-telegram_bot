@@ -154,6 +154,10 @@ async def favorite_watches(event, state: FSMContext):
         if not records:
             await send("You don't have any favorite watches.")
             return
+        
+        delete =    await conn.execute(
+            'DELETE FROM watches WHERE user_id = $1',
+            user_id)
 
         msg = "Your favorite watches:\n"
         for watch in records:
@@ -162,18 +166,20 @@ async def favorite_watches(event, state: FSMContext):
                 f"Characteristics: {watch['characteristics']}\n"
                 f"Price: {watch['price']}\n"
             )
-        await send(msg)
+  
+            kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="Delete", callback_data=delete)]
+            ])
+
+        await send(msg, reply_markup=kb)
+        await send("You delete your favorite watches.")
 
     except asyncpg.PostgresError as e:
         logging.error(f"favorite_watch_callback DB error: {e}")
     finally:
         if conn is not None:
             await conn.close()
-
-
-
-
-
 
 
 
