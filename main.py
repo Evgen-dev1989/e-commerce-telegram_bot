@@ -182,6 +182,40 @@ async def favorite_watches(event, state: FSMContext):
             await conn.close()
 
 
+async def search_watches(message: types.Message, state: FSMContext):
+    await message.answer("Please write a watch brand:")
+    await state.set_state(WatchStates.waiting_for_watch_name)
+
+
+
+async def brand_input_handler(message: types.Message, state: FSMContext):
+    watch_name = message.text.strip()
+    await state.update_data(watch_name=watch_name)
+
+    try:
+        actual_data = {
+            "Omega": get_watches_omega(url_omega),
+            "Rolex": get_watches_rolex(url_rolex),
+            "Jaeger-LeCoultre": get_watches_jlc(url_Jaeger_LeCoultre)
+        }
+
+        watches = actual_data.get(watch_name)
+        if not watches:
+            await message.answer("No watches found for your selection.")
+            return
+
+        for watch in watches:
+            await message.answer(
+                f"Name: {watch.get('name', '')}\n"
+                f"Characteristics: {watch.get('characteristics', '')}\n"
+                f"Price: {watch.get('price', '')}"
+            )
+    except Exception as e:
+        logging.error(f"error of search: {e}")
+
+
+
+
 
 async def delete_favorite_watches(event, state: FSMContext):
     conn = None
@@ -540,9 +574,6 @@ async def check_track_watches(user_id, bot):
 
 
 
-
-
-
 async def watch_callback_handler(callback: types.CallbackQuery, state: FSMContext):
     name = callback.data.replace("name_", "")
     await state.update_data(watch_name=name)
@@ -611,8 +642,6 @@ async def main():
 
     bot = Bot(token=token)
 
-
-    #print(f"quantity: {len(watches)}")
     await create_tables()
 
     dp.message.register(start_handler, Command("start"))
@@ -623,6 +652,7 @@ async def main():
  
     dp.message.register(show_choice_user, Command("watches"))
     dp.message.register(send_next_batch, Command("more"))
+    dp.message.register(brand_input_handler, WatchStates.waiting_for_watch_name)
     dp.callback_query.register(track_watch_callback, lambda c: c.data.startswith("track_"))
     dp.callback_query.register(favorite_watches, lambda c: c.data.startswith("favorite_"))
     dp.message.register(keyboard_handler, F.text == "Show my favorite watches")
