@@ -427,15 +427,20 @@ async def show_choice_user(message: types.Message, state: FSMContext):
 
     filtered = []
     for watch in watches:
+        logging.info(f"watch : {watch }")
         try:
             price_str = watch.get('price', '')
             price_digits = ''.join(c for c in price_str if c.isdigit() or c == '.')
+            logging.info(f"Raw price: {price_str}, Digits: {price_digits}")
             if not price_digits:
                 continue
             price = float(price_digits)
+            logging.info(f"Comparing price: {price} with range {price_from} - {price_to}")
             if float(price_from) <= price <= float(price_to):
+                logging.info(f"Raw price: {price_str}, Digits: {price_digits}")
                 filtered.append(watch)
         except ValueError:
+            logging.error(f"ValueError for price: {price_str}")
             continue
         except Exception as e:
             logging.error(f"Unexpected error in price filtering: {e}")
