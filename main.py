@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import re
 import time
 from collections import defaultdict
 
@@ -11,7 +12,8 @@ from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,
+                           KeyboardButton, ReplyKeyboardMarkup)
 from dotenv import load_dotenv
 from lxml import html
 from selenium import webdriver
@@ -307,10 +309,13 @@ def remove_duplicates(watches):
 
 def get_watches_omega(url):
     watches = []
+    
     try:
         response = requests.get(url)
+        
         tree = html.fromstring(response.content)
         items = tree.xpath('//li[contains(@class, "product-item")]')
+        
         for item in items:
             name = item.xpath('.//p[contains(@class, "collection")]/text()')
             price = item.xpath('.//span[@class="price"]/text()')
@@ -409,6 +414,7 @@ def get_watches_jlc(url):
 
 
 async def show_choice_user(message: types.Message, state: FSMContext):
+    logging.info("show_choice_user called")
     data = await state.get_data()
     watch_name = data.get("watch_name")
     price_from = data.get("price_from")
@@ -417,28 +423,33 @@ async def show_choice_user(message: types.Message, state: FSMContext):
     if price_from is None or price_to is None:
         await message.answer("Price range is not set. Please select price range again.")
         return
-
+    logging.info(f"show_choice_user: watch_name={watch_name}")
     if watch_name == "Omega":
         watches = get_watches_omega(url_omega)
     elif watch_name == "Rolex":
         watches = get_watches_rolex(url_rolex)
-    else:
+    elif watch_name == "Jaeger-LeCoultre":
         watches = get_watches_jlc(url_Jaeger_LeCoultre)
-
+    else:
+        await message.answer("Please select a watch brand first.")
+        return
+    
     filtered = []
     for watch in watches:
-        logging.info(f"watch : {watch }")
+        price_str = watch.get('price', '')
+        match = re.search(r'[\d,]+(?:\.\d+)?', price_str)
+        if not match:
+            logging.info(f"No price found in: {price_str}")
+            continue
+        price_digits = match.group().replace(',', '')
         try:
-            price_str = watch.get('price', '')
-            price_digits = ''.join(c for c in price_str if c.isdigit() or c == '.')
-            logging.info(f"Raw price: {price_str}, Digits: {price_digits}")
-            if not price_digits:
-                continue
             price = float(price_digits)
-            logging.info(f"Comparing price: {price} with range {price_from} - {price_to}")
+            logging.info(f"Parsed price: {price}, range: {price_from}-{price_to}")
             if float(price_from) <= price <= float(price_to):
-                logging.info(f"Raw price: {price_str}, Digits: {price_digits}")
                 filtered.append(watch)
+        except ValueError:
+            logging.error(f"ValueError for price: {price_str}")
+            continue
         except ValueError:
             logging.error(f"ValueError for price: {price_str}")
             continue
@@ -582,8 +593,6 @@ async def check_track_watches(user_id, bot):
             await conn.close()
 
 
-
-
 async def watch_callback_handler(callback: types.CallbackQuery, state: FSMContext):
     name = callback.data.replace("name_", "")
     await state.update_data(watch_name=name)
@@ -662,6 +671,8 @@ async def main():
     dp.callback_query.register(price_to_callback_handler, lambda c: c.data.startswith("to_"))
  
     dp.message.register(show_choice_user, Command("watches"))
+    dp.message.register(show_choice_user, Command("watches"), WatchStates.waiting_for_watch_name)
+    dp.message.register(show_choice_user, Command("watches"), WatchStates.waiting_for_watch_price)
     dp.message.register(send_next_batch, Command("more"))
     dp.callback_query.register(track_watch_callback, lambda c: c.data.startswith("track_"))
     dp.callback_query.register(favorite_watches, lambda c: c.data.startswith("favorite_"))
