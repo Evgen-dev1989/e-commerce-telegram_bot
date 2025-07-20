@@ -193,7 +193,7 @@ async def search_watches(message: types.Message, state: FSMContext):
 async def brand_input_handler(message: types.Message, state: FSMContext):
     watch_name = message.text.strip()
     await state.update_data(watch_name=watch_name)
-
+    logging.info(f"brand_input_handler called, state={await state.get_data()}")
     try:
         actual_data = {
             "Omega": get_watches_omega(url_omega),
@@ -412,18 +412,24 @@ def get_watches_jlc(url):
     return watches
 
 
-
+@dp.message(Command("watches"))
 async def show_choice_user(message: types.Message, state: FSMContext):
+    
     logging.info("show_choice_user called")
     data = await state.get_data()
+    logging.info(f"FSM state data: {data}")
     watch_name = data.get("watch_name")
+    if not watch_name:
+        await message.answer("Please select a watch brand first.")
+        return
+    logging.info(f"show_choice_user: watch_name={watch_name}")
     price_from = data.get("price_from")
     price_to = data.get("price_to")
 
     if price_from is None or price_to is None:
         await message.answer("Price range is not set. Please select price range again.")
         return
-    logging.info(f"show_choice_user: watch_name={watch_name}")
+
     if watch_name == "Omega":
         watches = get_watches_omega(url_omega)
     elif watch_name == "Rolex":
@@ -468,8 +474,11 @@ async def show_choice_user(message: types.Message, state: FSMContext):
 
 async def send_next_batch(message: types.Message, state: FSMContext):
     data = await state.get_data()
+    watch_name = data.get("watch_name")
     watches = data.get("filtered_watches", [])
     index = data.get("watches_index", 0)
+    logging.info(f"send_next_batch: watch_name={watch_name}, watches_index={index}, watches_count={len(watches)}")
+
     batch = watches[index:index+4]
     if not batch:
         await message.answer("No more watches.")
@@ -671,15 +680,14 @@ async def main():
     dp.callback_query.register(price_to_callback_handler, lambda c: c.data.startswith("to_"))
  
     dp.message.register(show_choice_user, Command("watches"))
-    dp.message.register(show_choice_user, Command("watches"), WatchStates.waiting_for_watch_name)
-    dp.message.register(show_choice_user, Command("watches"), WatchStates.waiting_for_watch_price)
-    dp.message.register(send_next_batch, Command("more"))
-    dp.callback_query.register(track_watch_callback, lambda c: c.data.startswith("track_"))
-    dp.callback_query.register(favorite_watches, lambda c: c.data.startswith("favorite_"))
-    dp.message.register(keyboard_handler, F.text == "Show my favorite watches")
-    dp.message.register(keyboard_handler, F.text == "Delete watch")
+
+    # dp.message.register(send_next_batch, Command("more"))
+    # dp.callback_query.register(track_watch_callback, lambda c: c.data.startswith("track_"))
+    # dp.callback_query.register(favorite_watches, lambda c: c.data.startswith("favorite_"))
+    # dp.message.register(keyboard_handler, F.text == "Show my favorite watches")
+    # dp.message.register(keyboard_handler, F.text == "Delete watch")
     
-    dp.message.register(user_data_handler)
+    #dp.message.register(user_data_handler)
 
     #asyncio.create_task(watches_update_scheduler(bot))
 
