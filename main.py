@@ -147,7 +147,6 @@ async def favorite_watches(event, state: FSMContext):
             send = event.answer
         user_id = user.id
 
-        logging.info(f"Fetching watches for user_id={user_id}")
         records = await conn.fetch(
             'SELECT watch_name, price, characteristics FROM watches WHERE user_id = $1',
             user_id
