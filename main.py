@@ -191,6 +191,9 @@ async def search_watches(message: types.Message, state: FSMContext):
 
 
 async def brand_input_handler(message: types.Message, state: FSMContext):
+    if message.text and message.text.startswith("/"):
+        await message.answer("Unknown command. Please use the menu.")
+        return
     watch_name = message.text.strip()
     await state.update_data(watch_name=watch_name)
     logging.info(f"brand_input_handler called, state={await state.get_data()}")
@@ -471,7 +474,7 @@ async def show_choice_user(message: types.Message, state: FSMContext):
     await state.update_data(filtered_watches=filtered, watches_index=0)
     await send_next_batch(message, state)
 
-
+@dp.message(Command("more"))
 async def send_next_batch(message: types.Message, state: FSMContext):
     data = await state.get_data()
     watch_name = data.get("watch_name")
@@ -681,7 +684,7 @@ async def main():
  
     dp.message.register(show_choice_user, Command("watches"))
 
-    # dp.message.register(send_next_batch, Command("more"))
+    dp.message.register(send_next_batch, Command("more"))
     # dp.callback_query.register(track_watch_callback, lambda c: c.data.startswith("track_"))
     # dp.callback_query.register(favorite_watches, lambda c: c.data.startswith("favorite_"))
     # dp.message.register(keyboard_handler, F.text == "Show my favorite watches")
