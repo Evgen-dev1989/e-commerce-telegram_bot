@@ -82,7 +82,23 @@ msgstr "Больше никаких часов."
 msgid "No more watches."
 msgstr "Больше никаких часов."
 
+msgid "Unknown command. Please use the menu"
+msgstr "Неизвестная команда. Используйте меню."
+
+msgid "Follow"
+msgstr "Следить"
+
+msgid "Added to watchlist"
+msgstr "Добавлено в список наблюдения"
 
 
+msgid "Choose price from"
+msgstr "Выберите цену из"
+
+msgid "Choose price to"
+msgstr "Выберите цену"
+
+msgid "You have selected {watch_name} a range: from {price_from} to {price_to}."
+msgstr "Вы выбрали {watch_name} в диапазоне: от {price_from} до {price_to}."
 
 

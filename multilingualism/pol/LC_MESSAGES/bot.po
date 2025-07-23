@@ -60,3 +60,27 @@ msgstr "Wyślij /more, aby zobaczyć więcej zegarków."
 
 msgid "No more watches."
 msgstr "Brak więcej zegarków."
+
+msgid "Unknown command. Please use the menu"
+msgstr "Nieznane polecenie. Proszę użyć menu."
+
+
+msgid "Follow"
+msgstr "Podążać"
+
+
+msgid "Choose price from"
+msgstr "Wybierz cenę z"
+
+msgid "Added to watchlist"
+msgstr "Dodano do listy obserwowanych"
+
+msgid "Choose price to"
+msgstr "Wybierz cenę do"
+
+msgid "You have selected {watch_name} a range: from {price_from} to {price_to}."
+msgstr "Wybrałeś {watch_name} w zakresie: od {price_from} do {price_to}."
+
+
+
+

@@ -60,3 +60,27 @@ msgstr "Надішліть /more, щоб побачити більше годи�
 
 msgid "No more watches."
 msgstr "Більше годинників немає."
+
+
+msgid "Unknown command. Please use the menu"
+msgstr "Невідома команда. Будь ласка, скористайтеся меню."
+
+
+msgid "Follow"
+msgstr "Стежити"
+
+
+msgid "Choose price from"
+msgstr "Виберіть ціну з"
+
+msgid "Added to watchlist"
+msgstr "Додано до списку спостереження"
+
+msgid "Choose price to"
+msgstr "Виберіть ціну"
+
+
+msgid "You have selected {watch_name} a range: from {price_from} to {price_to}."
+msgstr "Ви обрали {watch_name} у діапазоні: від {price_from} до {price_to}."
+
+

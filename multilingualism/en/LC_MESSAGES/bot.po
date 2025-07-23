@@ -60,3 +60,33 @@ msgstr "Send /more to see more watches."
 
 msgid "No more watches."
 msgstr "No more watches."
+
+msgid "Unknown command. Please use the menu"
+msgstr "Unknown command. Please use the menu"
+
+msgid "Follow"
+msgstr "Follow"
+
+msgid "Added to watchlist"
+msgstr "Added to watchlist"
+
+
+msgid "Choose price from"
+msgstr "Choose price from"
+
+
+msgid "Choose price to"
+msgstr "Choose price to"
+
+msgid "You have selected {watch_name} a range: from {price_from} to {price_to}. Do you want look /watches ?"
+msgstr "You have selected {watch_name} in the range: from {price_from} to {price_to}. Do you want to see watches? Type /watches."
+
+
+msgid "Choose price to"
+msgstr "Choose price to"
+
+
+
+
+
+
