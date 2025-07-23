@@ -1,0 +1,62 @@
+msgid "Show my favorite watches:"
+msgstr "Показати мої улюблені годинники:"
+
+msgid "Delete watch"
+msgstr "Видалити годинник"
+
+msgid "Welcome to the Watches Bot! Choose a watch:"
+msgstr "Ласкаво просимо до бота годинників! Виберіть годинник:"
+
+msgid "Choose a watch:"
+msgstr "Виберіть годинник:"
+
+msgid "and select an action"
+msgstr "та виберіть дію"
+
+msgid "You don't have any favorite watches"
+msgstr "У вас немає улюблених годинників"
+
+msgid "Your favorite watches"
+msgstr "Ваші улюблені годинники"
+
+msgid "Name"
+msgstr "Назва"
+
+msgid "Characteristics"
+msgstr "Характеристики"
+
+msgid "Price"
+msgstr "Ціна"
+
+msgid "Delete"
+msgstr "Видалити"
+
+msgid "You delete your favorite watches"
+msgstr "Ви видалили свої улюблені годинники"
+
+msgid "write the name of the watch you want to find"
+msgstr "напишіть назву годинника, який хочете знайти"
+
+msgid "No watches found for your selection"
+msgstr "За вашим вибором годинники не знайдено"
+
+msgid "All your favorite watches have been deleted"
+msgstr "Всі ваші улюблені годинники були видалені."
+
+msgid "Select an option"
+msgstr "Виберіть варіант"
+
+msgid "Please select a watch brand first"
+msgstr "Будь ласка, спочатку виберіть марку годинника"
+
+msgid "No price found in"
+msgstr "Ціну не знайдено"
+
+msgid "Price range is not set. Please select price range again."
+msgstr "Діапазон цін не встановлено. Будь ласка, виберіть діапазон цін ще раз."
+
+msgid "Send /more to see more watches."
+msgstr "Надішліть /more, щоб побачити більше годинників."
+
+msgid "No more watches."
+msgstr "Більше годинників немає."

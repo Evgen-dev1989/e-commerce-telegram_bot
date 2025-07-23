@@ -17,7 +17,7 @@ from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,
 from dotenv import load_dotenv
 from lxml import html
 from selenium import webdriver
-
+from aiogram_i18n import I18nMiddleware
 load_dotenv()
 
 token = os.getenv("token")
@@ -40,7 +40,17 @@ url_omega = 'https://www.omegawatches.com/en-au/suggestions/omega-mens-watches'
 url_rolex = 'https://www.chrono24.com.au/rolex/index.html'
 url_Jaeger_LeCoultre = "https://www.jaeger-lecoultre.com/au-en/watches/all-watches"
 
+
+
+
 dp = Dispatcher()
+
+i18n = I18nMiddleware(
+    path="locales",  
+    default_locale="en"
+)
+dp.update.middleware(i18n)
+_ = i18n.gettext  
 
 class WatchStates(StatesGroup):
     waiting_for_watch_name = State()
@@ -109,8 +119,8 @@ async def user_data_handler(message: types.Message) -> None:
 
 main_menu_kb = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="Show my favorite watches")],
-        [KeyboardButton(text="Delete watch")],
+        [KeyboardButton(_(text="Show my favorite watches"))],
+        [KeyboardButton(_(text="Delete watch"))],
     ],
     resize_keyboard=True,  
     one_time_keyboard=False  
@@ -416,10 +426,8 @@ def get_watches_jlc(url):
 
 @dp.message(Command("watches"))
 async def show_choice_user(message: types.Message, state: FSMContext):
-    
-    logging.info("show_choice_user called")
+
     data = await state.get_data()
-    logging.info(f"FSM state data: {data}")
     watch_name = data.get("watch_name")
     if not watch_name:
         await message.answer("Please select a watch brand first.")
@@ -684,12 +692,12 @@ async def main():
     dp.message.register(show_choice_user, Command("watches"))
 
     dp.message.register(send_next_batch, Command("more"))
-    # dp.callback_query.register(track_watch_callback, lambda c: c.data.startswith("track_"))
-    # dp.callback_query.register(favorite_watches, lambda c: c.data.startswith("favorite_"))
-    # dp.message.register(keyboard_handler, F.text == "Show my favorite watches")
-    # dp.message.register(keyboard_handler, F.text == "Delete watch")
+    dp.callback_query.register(track_watch_callback, lambda c: c.data.startswith("track_"))
+    dp.callback_query.register(favorite_watches, lambda c: c.data.startswith("favorite_"))
+    dp.message.register(keyboard_handler, F.text == "Show my favorite watches")
+    dp.message.register(keyboard_handler, F.text == "Delete watch")
     
-    #dp.message.register(user_data_handler)
+    dp.message.register(user_data_handler)
 
     #asyncio.create_task(watches_update_scheduler(bot))
 

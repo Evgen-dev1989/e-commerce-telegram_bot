@@ -52,8 +52,37 @@ msgstr "По вашему выбору часы не найдены"
 msgid "All your favorite watches have been deleted"
 msgstr "Все ваши любимые часы были удалены."
 
-msgid "No watches found for your selection"
-msgstr "По вашему выбору часы не найдены"
+msgid "Select an option"
+msgstr "Выберите вариант"
+
+msgid "Please select a watch brand first"
+msgstr "Пожалуйста, сначала выберите марку часов"
+
+msgid "No price found in"
+msgstr "Цена не найдена"
+
+msgid "Price range is not set. Please select price range again."
+msgstr "Диапазон цен не установлен. Пожалуйста, выберите диапазон цен ещё раз."
 
 msgid "No watches found for your selection"
 msgstr "По вашему выбору часы не найдены"
+
+msgid "Send /more to see more watches."
+msgstr "Отправьте /more, чтобы увидеть больше часов."
+
+msgid "No more watches."
+msgstr "Больше никаких часов."
+
+msgid "No more watches."
+msgstr "Больше никаких часов."
+
+msgid "No more watches."
+msgstr "Больше никаких часов."
+
+msgid "No more watches."
+msgstr "Больше никаких часов."
+
+
+
+
+
