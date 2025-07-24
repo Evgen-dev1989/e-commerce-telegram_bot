@@ -17,7 +17,9 @@ from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,
 from dotenv import load_dotenv
 from lxml import html
 from selenium import webdriver
-from aiogram_i18n import I18nMiddleware
+
+from aiogram_i18n import LazyI18nMiddleware
+
 load_dotenv()
 
 token = os.getenv("token")
@@ -41,16 +43,12 @@ url_rolex = 'https://www.chrono24.com.au/rolex/index.html'
 url_Jaeger_LeCoultre = "https://www.jaeger-lecoultre.com/au-en/watches/all-watches"
 
 
-
-
 dp = Dispatcher()
 
-i18n = I18nMiddleware(
-    path="locales",  
-    default_locale="en"
-)
+i18n = LazyI18nMiddleware("locales", default_locale="en")
 dp.update.middleware(i18n)
-_ = i18n.gettext  
+_ = i18n.gettext
+
 
 
 
