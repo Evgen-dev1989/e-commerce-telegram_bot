@@ -19,6 +19,7 @@ import i18n
 from dotenv import load_dotenv
 from lxml import html
 from selenium import webdriver
+from words import translate, translations, user_languages
 
 load_dotenv()
 
@@ -45,39 +46,39 @@ url_Jaeger_LeCoultre = "https://www.jaeger-lecoultre.com/au-en/watches/all-watch
 
 dp = Dispatcher()
 
-i18n.load_path.append('locales')
-i18n.set('locale', 'en')
-i18n.set('filename_format', '{locale}/LC_MESSAGES/{domain}.{format}')
 
-i18n_middleware = I18nMiddleware(i18n)
-dp.middleware.setup(i18n_middleware)
-_ = i18n_middleware.gettext
 
 @dp.message(Command("lang"))
 async def set_language(message: types.Message, state: FSMContext):
-    await message.answer("Choose language: /en /ru /uk /pol")
+    lang = user_languages.get(message.from_user.id, "en")
+    await message.answer(translate("choose_language", lang))
 
 @dp.message(Command("en"))
 async def lang_en(message: types.Message):
-    i18n_middleware.set_locale("en", user_id=message.from_user.id)
-    await message.answer("Language set to English.")
+    user_languages[message.from_user.id] = "en"
+    await message.answer(translate("language_set", "en"))
 
 @dp.message(Command("ru"))
 async def lang_ru(message: types.Message):
-    i18n_middleware.set_locale("ru", user_id=message.from_user.id)
-    await message.answer("Язык переключен на русский.")
-
-@dp.message(Command("uk"))
-async def lang_uk(message: types.Message):
-    i18n_middleware.set_locale("uk", user_id=message.from_user.id)
-    await message.answer("Мова переключена на українську.")
+    user_languages[message.from_user.id] = "ru"
+    await message.answer(translate("language_set_ru", "ru"))
 
 @dp.message(Command("pol"))
 async def lang_pol(message: types.Message):
-    i18n_middleware.set_locale("pol", user_id=message.from_user.id)
-    await message.answer("Język zmieniony na polski.")
+    user_languages[message.from_user.id] = "pol"
+    await message.answer(translate("language_set_pol", "pol"))
 
+@dp.message(Command("uk"))
+async def lang_uk(message: types.Message):
+    user_languages[message.from_user.id] = "uk"
+    await message.answer(translate("language_set_uk", "uk"))
 
+# ...и так далее для других языков
+
+# Пример использования в других местах:
+async def start_handler(message: types.Message, state: FSMContext):
+    lang = user_languages.get(message.from_user.id, "en")
+    await message.answer(translate("welcome", lang))
 
 
 
