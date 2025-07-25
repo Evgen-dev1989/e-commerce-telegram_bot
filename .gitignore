@@ -2,3 +2,4 @@ config
 config.py
 .env
 bot.log
+.venv
