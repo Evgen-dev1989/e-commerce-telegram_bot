@@ -140,14 +140,21 @@ async def user_data_handler(message: types.Message) -> None:
             await conn.close()
 
 
-main_menu_kb = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(translate("show_my_favorite_watches", lang))],
-        [KeyboardButton(translate("delete_watch", lang))],
-    ],
-    resize_keyboard=True,  
-    one_time_keyboard=False  
-)
+# @dp.message(Command("start"))
+# async def start_handler(message: types.Message, state: FSMContext):
+#     lang = user_languages.get(message.from_user.id, "en")
+#     main_menu_kb = ReplyKeyboardMarkup(
+#         keyboard=[
+#             [KeyboardButton(text=translate("Show my favorite watches:", lang))],
+#             [KeyboardButton(text=translate("Delete watch", lang))]
+#         ],
+#         resize_keyboard=True,
+#         one_time_keyboard=False
+#     )
+
+#     await message.answer(translate("Welcome to the Watches Bot! Choose a watch:", lang), reply_markup=main_menu_kb)
+
+
 
 
 name_watches = InlineKeyboardMarkup(
@@ -159,14 +166,33 @@ name_watches = InlineKeyboardMarkup(
 )
 
 
+languages = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="English", callback_data="/en")],
+        [InlineKeyboardButton(text="Ukrainian", callback_data="/uk")],
+        [InlineKeyboardButton(text="Russian", callback_data="/ru")],
+        [InlineKeyboardButton(text="Polish", callback_data="/pol")]
+    ]
+)
 async def start_handler(message: types.Message, state: FSMContext):
 
     lang = user_languages.get(message.from_user.id, "en")
     await message.answer(translate("welcome", lang))
     await message.answer(translate("choose_watch", lang), reply_markup=name_watches)
+    await message.answer(("language, язык, мова, język:"), reply_markup=languages)
     await state.set_state(WatchStates.waiting_for_watch_name)
-    await message.answer(translate("select_action", lang), reply_markup=main_menu_kb)
-    await state.set_state(WatchStates.waiting_for_watch_name)
+
+    main_menu_kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=translate("Show my favorite watches:", lang))],
+            [KeyboardButton(text=translate("Delete watch", lang))]
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=False
+    )
+
+    await message.answer(translate("Welcome to the Watches Bot! Choose a watch:", lang), reply_markup=main_menu_kb)
+
 
 async def favorite_watches(event, state: FSMContext):
     conn = None
@@ -309,6 +335,7 @@ async def keyboard_handler(message: types.Message):
     lang = user_languages.get(message.from_user.id, "en")
     logging.info(translate("User select an option", lang))
     await message.answer(translate("Select an option:", lang), reply_markup=name_watches)
+    
     if message.text == translate("Show my favorite watches", lang):
         await favorite_watches(message, None)
     elif message.text == translate("Delete watch", lang):
@@ -650,7 +677,8 @@ async def check_track_watches(user_id, bot):
 async def watch_callback_handler(callback: types.CallbackQuery, state: FSMContext):
     name = callback.data.replace("name_", "")
     await state.update_data(watch_name=name)
-    await callback.message.answer(_("Choose price from:"), reply_markup=price_from_kb)
+    lang = user_languages.get(callback.from_user.id, "en")
+    await callback.message.answer(translate("Choose price from:", lang), reply_markup=price_from_kb)
     await callback.answer()
 
 
@@ -677,17 +705,19 @@ price_to_kb = InlineKeyboardMarkup(
 
 async def price_from_callback_handler(callback: types.CallbackQuery, state: FSMContext):
     price_from = callback.data.replace("from_", "")
+    lang = user_languages.get(callback.from_user.id, "en")
     await state.update_data(price_from=price_from)
-    await callback.message.answer(_("Choose price to:"), reply_markup=price_to_kb)
+    await callback.message.answer(translate("Choose price to:", lang), reply_markup=price_to_kb)
     await callback.answer()
 
 async def price_to_callback_handler(callback: types.CallbackQuery, state: FSMContext):
     price_to = callback.data.replace("to_", "")
+    lang = user_languages.get(callback.from_user.id, "en")
     await state.update_data(price_to=price_to)  
     data = await state.get_data()
     watch_name = data.get("watch_name")
     price_from = data.get("price_from")
-    await callback.message.answer(_(
+    await callback.message.answer(translate(
         f"You have selected {watch_name} a range: from {price_from} to {price_to}. Do you want look /watches ?"
     ))
     await callback.answer()
@@ -714,7 +744,7 @@ async def main():
     start = time.perf_counter()
 
     bot = Bot(token=token)
-
+  
     await create_tables()
 
     dp.message.register(start_handler, Command("start"))
@@ -726,11 +756,17 @@ async def main():
  
     dp.message.register(show_choice_user, Command("watches"))
 
-    dp.message.register(send_next_batch, Command("more"))
-    dp.callback_query.register(track_watch_callback, lambda c: c.data.startswith(_("track_")))
-    dp.callback_query.register(favorite_watches, lambda c: c.data.startswith(_("favorite_")))
-    dp.message.register(keyboard_handler, F.text == _("Show my favorite watches"))
-    dp.message.register(keyboard_handler, F.text == _("Delete watch"))
+ 
+    dp.callback_query.register(track_watch_callback, lambda c: c.data.startswith("track_"))
+    dp.callback_query.register(favorite_watches, lambda c: c.data.startswith("favorite_"))
+    
+    dp.message.register(keyboard_handler, F.text.in_([
+        "Show my favorite watches:", "Показать мои любимые часы:",
+        "Показати мої улюблені годинники:", "Pokaż moje ulubione zegarki:"
+    ]))
+    dp.message.register(keyboard_handler, F.text.in_([
+        "Delete watch", "Удалить часы", "Видалити годинник", "Usuń zegarek"
+    ]))
 
     dp.message.register(user_data_handler)
 
