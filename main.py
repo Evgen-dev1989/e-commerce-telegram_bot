@@ -1,4 +1,5 @@
 import asyncio
+from email.mime import message
 import logging
 import os
 import re
@@ -14,8 +15,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,
                            KeyboardButton, ReplyKeyboardMarkup)
-from aiogram_i18n import I18nMiddleware
-import i18n
+
 from dotenv import load_dotenv
 from lxml import html
 from selenium import webdriver
@@ -72,15 +72,6 @@ async def lang_pol(message: types.Message):
 async def lang_uk(message: types.Message):
     user_languages[message.from_user.id] = "uk"
     await message.answer(translate("language_set_uk", "uk"))
-
-# ...и так далее для других языков
-
-# Пример использования в других местах:
-async def start_handler(message: types.Message, state: FSMContext):
-    lang = user_languages.get(message.from_user.id, "en")
-    await message.answer(translate("welcome", lang))
-
-
 
 
 
@@ -151,8 +142,8 @@ async def user_data_handler(message: types.Message) -> None:
 
 main_menu_kb = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(_(text="Show my favorite watches"))],
-        [KeyboardButton(_(text="Delete watch"))],
+        [KeyboardButton(translate("show_my_favorite_watches", lang))],
+        [KeyboardButton(translate("delete_watch", lang))],
     ],
     resize_keyboard=True,  
     one_time_keyboard=False  
@@ -170,10 +161,11 @@ name_watches = InlineKeyboardMarkup(
 
 async def start_handler(message: types.Message, state: FSMContext):
 
-    await message.answer(_("Welcome to the Watches Bot! Choose a watch:"))
-    await message.answer(_("Choose watch:", reply_markup=name_watches))
+    lang = user_languages.get(message.from_user.id, "en")
+    await message.answer(translate("welcome", lang))
+    await message.answer(translate("choose_watch", lang), reply_markup=name_watches)
     await state.set_state(WatchStates.waiting_for_watch_name)
-    await message.answer(_("and select an action:", reply_markup=main_menu_kb))
+    await message.answer(translate("select_action", lang), reply_markup=main_menu_kb)
     await state.set_state(WatchStates.waiting_for_watch_name)
 
 async def favorite_watches(event, state: FSMContext):
@@ -195,45 +187,52 @@ async def favorite_watches(event, state: FSMContext):
         )
 
         if not records:
-            await send(_("You don't have any favorite watches."))
+            lang = user_languages.get(user_id, "en")
+            await send(translate("no_favorite_watches", lang))
             return
         
         delete = await conn.execute(
             'DELETE FROM watches WHERE user_id = $1',
             user_id)
-
-        msg = _("Your favorite watches:\n")
+        lang = user_languages.get(user_id, "en")
+        msg = translate("your_favorite_watches", lang)
         for watch in records:
-            msg += _(
+            lang = user_languages.get(user_id, "en")
+            msg += translate(
                 f"\nName: {watch['watch_name']}\n"
                 f"Characteristics: {watch['characteristics']}\n"
-                f"Price: {watch['price']}\n"
+                f"Price: {watch['price']}\n",
+                lang
             )
   
             kb = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text=(_("Delete")), callback_data=delete)]
+                [InlineKeyboardButton(text=translate("Delete", lang), callback_data=delete)]
             ])
 
         await send(msg, reply_markup=kb)
-        await send(_("You delete your favorite watches."))
+        await send(translate("you_delete_your_favorite_watches", lang))
 
     except asyncpg.PostgresError as e:
-        logging.error(_(f"favorite_watch_callback DB error: {e}"))
+        lang = user_languages.get(user_id, "en")
+        await send(translate("db_error", lang))
+        logging.error(translate(f"favorite_watch_callback DB error: {e}", lang))
     finally:
         if conn is not None:
             await conn.close()
 
 
 async def search_watches(message: types.Message, state: FSMContext):
-    await message.answer(_("write the name of the watch you want to find:"))
+    lang = user_languages.get(message.from_user.id, "en")
+    await message.answer(translate("write_watch_name", lang))
     await state.set_state(WatchStates.waiting_for_watch_name)
 
 
 
 async def brand_input_handler(message: types.Message, state: FSMContext):
     if message.text and message.text.startswith("/"):
-        await message.answer(_("Unknown command. Please use the menu."))
+        lang = user_languages.get(message.from_user.id, "en")
+        await message.answer(translate("unknown_command", lang))
         return
     watch_name = message.text.strip()
     await state.update_data(watch_name=watch_name)
@@ -247,16 +246,17 @@ async def brand_input_handler(message: types.Message, state: FSMContext):
 
         brand = next((b for b in actual_data if b.lower() == watch_name.lower()), None)
         if not brand:
-            await message.answer(_("No watches found for your selection."))
+            lang = user_languages.get(message.from_user.id, "en")
+            await message.answer(translate("no_watches_found", lang))
             return
 
         watches = actual_data[brand]
         if not watches:
-            await message.answer(_("No watches found for your selection."))
+            await message.answer(translate("no_watches_found", lang))
             return
 
         for watch in watches:
-            await message.answer(_(
+            await message.answer(translate(
                 f"Name: {watch.get('name', '')}\n"
                 f"Characteristics: {watch.get('characteristics', '')}\n"
                 f"Price: {watch.get('price', '')}"
@@ -288,7 +288,8 @@ async def delete_favorite_watches(event, state: FSMContext):
         )
 
         if not records:
-            await send(_("You don't have any favorite watches."))
+            lang = user_languages.get(message.from_user.id, "en")
+            await send(translate("no_favorite_watches", lang))
             return
         logging.info(f"Deleting watches for user_id={user_id}")
         await conn.execute(
@@ -296,21 +297,21 @@ async def delete_favorite_watches(event, state: FSMContext):
             user_id
         )
 
-        await send(_("All your favorite watches have been deleted."))
+        await send(translate("all_your_favorite_watches_have_been_deleted", lang))
 
     except asyncpg.PostgresError as e:
-        logging.error(f"favorite_watch_callback DB error: {e}")
+        logging.error(translate(f"favorite_watch_callback DB error: {e}", lang))
     finally:
         if conn is not None:
             await conn.close()
 
 async def keyboard_handler(message: types.Message):
-
-    logging.info(_("User select an option"))
-    await message.answer(_("Select an option:"), reply_markup=name_watches)
-    if message.text == _("Show my favorite watches"):
+    lang = user_languages.get(message.from_user.id, "en")
+    logging.info(translate("User select an option", lang))
+    await message.answer(translate("Select an option:", lang), reply_markup=name_watches)
+    if message.text == translate("Show my favorite watches", lang):
         await favorite_watches(message, None)
-    elif message.text == _("Delete watch"):
+    elif message.text == translate("Delete watch", lang):
         await delete_favorite_watches(message, None)
    
 
@@ -462,14 +463,15 @@ async def show_choice_user(message: types.Message, state: FSMContext):
     data = await state.get_data()
     watch_name = data.get("watch_name")
     if not watch_name:
-        await message.answer(_("Please select a watch brand first."))
+        lang = user_languages.get(message.from_user.id, "en")
+        await message.answer(translate("Please select a watch brand first.", lang))
         return
     logging.info(f"show_choice_user: watch_name={watch_name}")
     price_from = data.get("price_from")
     price_to = data.get("price_to")
 
     if price_from is None or price_to is None:
-        await message.answer(_("Price range is not set. Please select price range again."))
+        await message.answer(translate("Price range is not set. Please select price range again.", lang))
         return
 
     if watch_name == "Omega":
@@ -479,7 +481,7 @@ async def show_choice_user(message: types.Message, state: FSMContext):
     elif watch_name == "Jaeger-LeCoultre":
         watches = get_watches_jlc(url_Jaeger_LeCoultre)
     else:
-        await message.answer(_("Please select a watch brand first."))
+        await message.answer(translate("Please select a watch brand first.", lang))
         return
     
     filtered = []
@@ -506,7 +508,7 @@ async def show_choice_user(message: types.Message, state: FSMContext):
             continue
 
     if not filtered:
-        await message.answer(_("No watches found for your selection."))
+        await message.answer(translate("No watches found for your selection.", lang))
         await state.clear()
         return
 
@@ -528,16 +530,17 @@ async def send_next_batch(message: types.Message, state: FSMContext):
         return
 
     for i, watch in enumerate(batch):
-        msg = _(
+        lang = user_languages.get(message.from_user.id, "en")
+        msg = translate(
             f"Name: {watch.get('name', '')}\n"
             f"Characteristics: {watch.get('characteristics', '')}\n"
-            f"Price: {watch.get('price', '')}"
+            f"Price: {watch.get('price', '')}", lang
         )
      
         track_data = f"track_{index + i}"
         kb = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text=_("Follow"), callback_data=track_data)]
+                [InlineKeyboardButton(text=translate("Follow", lang), callback_data=track_data)]
             ]
         )
         await message.answer(msg, reply_markup=kb)
@@ -545,9 +548,9 @@ async def send_next_batch(message: types.Message, state: FSMContext):
     index += 4
     await state.update_data(watches_index=index)
     if index < len(watches):
-        await message.answer(_("Send /more to see more watches."))
+        await message.answer(translate("Send /more to see more watches.", lang))
     else:
-        await message.answer(_("No more watches."))
+        await message.answer(translate("No more watches.", lang))
         await state.clear()
 
 
@@ -589,14 +592,14 @@ async def track_watch_callback(callback: types.CallbackQuery, state: FSMContext)
         finally:
             if conn is not None:
                 await conn.close()
-
-        await callback.message.answer(_(
+        lang = user_languages.get(callback.from_user.id, "en")
+        await callback.message.answer(translate(
             f"You have added to tracking:\n"
             f"Name: {watch.get('name', '')}\n"
             f"Characteristics: {watch.get('characteristics', '')}\n"
             f"Price: {watch.get('price', '')}"
         ))
-    await callback.answer(_("Added to watchlist!"))
+    await callback.answer(translate("Added to watchlist!", lang))
 
 async def check_track_watches(user_id, bot):
     conn = None
