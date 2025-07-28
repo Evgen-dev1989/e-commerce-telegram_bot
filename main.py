@@ -200,18 +200,10 @@ async def language_callback_handler(callback: types.CallbackQuery, state: FSMCon
     lang_code = callback.data.replace("lang_", "")
     user_languages[callback.from_user.id] = lang_code
 
-
     await callback.message.answer(translate("language_set", lang_code))
 
-    main_menu_kb = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text=translate("Show my favorite watches:", lang_code))],
-            [KeyboardButton(text=translate("Delete watch", lang_code))]
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=False
-    )
-    await callback.message.answer(translate("and select an action:", lang_code), reply_markup=main_menu_kb)
+    await start_handler(callback.message, state)
+
     await callback.answer()
 
 
