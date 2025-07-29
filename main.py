@@ -89,7 +89,8 @@ create_db = (
         user_id BIGINT PRIMARY KEY NOT NULL,
         user_name VARCHAR(250) NOT NULL,
         first_name VARCHAR(250),
-        last_name VARCHAR(250)
+        last_name VARCHAR(250),
+        language VARCHAR(10) DEFAULT 'en'
     )
     """,
     """
@@ -105,7 +106,10 @@ create_db = (
             ON UPDATE CASCADE
             ON DELETE CASCADE
     )
-    """#,    """ ALTER TABLE watches ADD COLUMN id SERIAL PRIMARY KEY;"""
+    """,
+    """
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS language VARCHAR(10) DEFAULT 'en';
+    """
 
 
 )
@@ -128,15 +132,38 @@ async def user_data_handler(message: types.Message) -> None:
 
         if record is None:
             insert_query = """
-            INSERT INTO users(time, user_id, user_name, first_name, last_name) 
-            VALUES (NOW(), $1, $2, $3, $4);
+            INSERT INTO users(time, user_id, user_name, first_name, last_name, language) 
+            VALUES (NOW(), $1, $2, $3, $4, $5);
             """
-            await conn.execute(insert_query, user_id, user_name, first_name, last_name)
+            await conn.execute(insert_query, user_id, user_name, first_name, last_name, 'en')
+        else:
+     
+            saved_lang = await conn.fetchval('SELECT language FROM users WHERE user_id = $1', user_id)
+            if saved_lang:
+                user_languages[user_id] = saved_lang
+                logging.info(f"Loaded saved language {saved_lang} for user {user_id}")
 
        
     except asyncpg.PostgresError as e:
         logging.error(f"Database error: {e}")
 
+    finally:
+        if conn is not None:
+            await conn.close()
+
+
+async def save_user_language(user_id: int, language: str):
+
+    conn = None
+    try:
+        conn = await connect_db()
+        await conn.execute(
+            'UPDATE users SET language = $1 WHERE user_id = $2',
+            language, user_id
+        )
+        logging.info(f"Saved language {language} for user {user_id}")
+    except asyncpg.PostgresError as e:
+        logging.error(f"Error saving user language: {e}")
     finally:
         if conn is not None:
             await conn.close()
@@ -179,7 +206,11 @@ languages = InlineKeyboardMarkup(
 
 async def start_handler(message: types.Message, state: FSMContext):
 
+    await user_data_handler(message)
+    
     lang = user_languages.get(message.from_user.id, "en")
+    logging.info(f"start_handler: user {message.from_user.id}, lang={lang}")
+    
     await message.answer(translate("Welcome to the Watches Bot! Choose a watch:", lang), reply_markup=name_watches)
     await message.answer(("language, язык, мова, język:"), reply_markup=languages)
     await state.set_state(WatchStates.waiting_for_watch_name)
@@ -200,9 +231,28 @@ async def language_callback_handler(callback: types.CallbackQuery, state: FSMCon
     lang_code = callback.data.replace("lang_", "")
     user_languages[callback.from_user.id] = lang_code
 
+    await save_user_language(callback.from_user.id, lang_code)
+
+    logging.info(f"Language changed to {lang_code} for user {callback.from_user.id}")
+    logging.info(f"Current user_languages: {user_languages}")
+
     await callback.message.answer(translate("language_set", lang_code))
 
-    await start_handler(callback.message, state)
+
+    await state.clear()
+
+    main_menu_kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=translate("Show my favorite watches:", lang_code))],
+            [KeyboardButton(text=translate("Delete watch", lang_code))]
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=False
+    )
+    
+
+    await callback.message.answer(translate("Welcome to the Watches Bot! Choose a watch:", lang_code), reply_markup=name_watches)
+    await callback.message.answer(translate("and select an action:", lang_code), reply_markup=main_menu_kb)
 
     await callback.answer()
 
@@ -231,26 +281,23 @@ async def favorite_watches(event, state: FSMContext):
            
             await send(translate("no_favorite_watches", lang))
             return
-        
-        delete = await conn.execute(
-            'DELETE FROM watches WHERE user_id = $1',
-            user_id)
+    
         msg = translate("your_favorite_watches", lang)
         for watch in records:
-            msg += translate(
-                f"\nName: {watch['watch_name']}\n"
-                f"Characteristics: {watch['characteristics']}\n"
-                f"Price: {watch['price']}\n",
-                lang
-            )
+            name_label = translate("Name", lang)
+            characteristics_label = translate("Characteristics", lang)
+            price_label = translate("Price", lang)
+            
+            msg += f"\n{name_label}: {watch['watch_name']}\n{characteristics_label}: {watch['characteristics']}\n{price_label}: {watch['price']}\n"
   
-            kb = InlineKeyboardMarkup(
+
+        kb = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text=translate("Delete", lang), callback_data=delete)]
-            ])
+                [InlineKeyboardButton(text=translate("Show my favorite watches", lang), callback_data="your_favorite_watches")]
+            ]
+        )
 
         await send(msg, reply_markup=kb)
-        await send(translate("you_delete_your_favorite_watches", lang))
 
     except asyncpg.PostgresError as e:
         lang = user_languages.get(user_id, "en")
@@ -346,12 +393,26 @@ async def delete_favorite_watches(event, state: FSMContext):
 
 async def keyboard_handler(message: types.Message):
     lang = user_languages.get(message.from_user.id, "en")
+    logging.info(f"keyboard_handler: user {message.from_user.id}, lang={lang}, message_text='{message.text}'")
+    logging.info(f"Current user_languages: {user_languages}")
+    
     logging.info(translate("User select an option", lang))
     await message.answer(translate("Select an option:", lang), reply_markup=name_watches)
     
-    if message.text == translate("Show my favorite watches:", lang):
+
+    show_watches_texts = [
+        "Show my favorite watches:", "Показать мои любимые часы:",
+        "Показати мої улюблені годинники:", "Pokaż moje ulubione zegarki:"
+    ]
+    
+
+    delete_watch_texts = [
+        "Delete watch", "Удалить часы", "Видалити годинник", "Usuń zegarek"
+    ]
+    
+    if message.text in show_watches_texts:
         await favorite_watches(message, None)
-    elif message.text == translate("Delete watch", lang):
+    elif message.text in delete_watch_texts:
         await delete_favorite_watches(message, None)
    
 
@@ -570,12 +631,11 @@ async def send_next_batch(message: types.Message, state: FSMContext):
         return
 
     for i, watch in enumerate(batch):
-      
-        msg = translate(
-            f"Name: {watch.get('name', '')}\n"
-            f"Characteristics: {watch.get('characteristics', '')}\n"
-            f"Price: {watch.get('price', '')}", lang
-        )
+        name_label = translate("Name", lang)
+        characteristics_label = translate("Characteristics", lang)
+        price_label = translate("Price", lang)
+        
+        msg = f"{name_label}: {watch.get('name', '')}\n{characteristics_label}: {watch.get('characteristics', '')}\n{price_label}: {watch.get('price', '')}"
      
         track_data = f"track_{index + i}"
         kb = InlineKeyboardMarkup(
@@ -591,7 +651,7 @@ async def send_next_batch(message: types.Message, state: FSMContext):
         await message.answer(translate("Send /more to see more watches.", lang))
     else:
         await message.answer(translate("No more watches.", lang))
-        await state.clear()
+     
 
 
 @dp.callback_query(lambda c: c.data.startswith("track_"))
@@ -600,8 +660,11 @@ async def track_watch_callback(callback: types.CallbackQuery, state: FSMContext)
     data = await state.get_data()
     watches = data.get("filtered_watches", [])
     idx = int(callback.data.replace("track_", ""))
+    logging.info(f"track_watch_callback: idx={idx}, watches_count={len(watches)}, callback_data={callback.data}")
+    
     if 0 <= idx < len(watches):
         watch = watches[idx]
+        logging.info(f"track_watch_callback: processing watch={watch}")
         conn = None
         try:    
             conn = await connect_db()
@@ -620,25 +683,36 @@ async def track_watch_callback(callback: types.CallbackQuery, state: FSMContext)
             watch_name = watch.get('name', '')
             price = watch.get('price', '')
             characteristics = watch.get('characteristics', '')
+            
+            logging.info(f"track_watch_callback: Inserting watch - user_id={user_id}, name='{watch_name}', price='{price}'")
 
             insert_query = """
                 INSERT INTO watches(user_id, watch_name, price, characteristics) 
                 VALUES ($1, $2, $3, $4);
                 """
             await conn.execute(insert_query, user_id, watch_name, price, characteristics)
+            logging.info(f"track_watch_callback: Watch successfully inserted into database")
 
         
         except asyncpg.PostgresError as e:
-            logging.error(f" track_watch_callback DB error: {e}")
+            logging.error(f"track_watch_callback DB error: {e}")
         finally:
             if conn is not None:
                 await conn.close()
-        await callback.message.answer(translate(
-            f"You have added to tracking:\n"
-            f"Name: {watch.get('name', '')}\n"
-            f"Characteristics: {watch.get('characteristics', '')}\n"
-            f"Price: {watch.get('price', '')}", lang
-        ))
+     
+        tracking_msg = translate("tracking_added_message", lang)
+        name_label = translate("Name", lang)
+        characteristics_label = translate("Characteristics", lang)
+        price_label = translate("Price", lang)
+        
+        watch_info = f"\n{name_label}: {watch.get('name', '')}\n{characteristics_label}: {watch.get('characteristics', '')}\n{price_label}: {watch.get('price', '')}"
+        full_message = tracking_msg + watch_info
+        
+        await callback.message.answer(full_message)
+    else:
+        logging.error(f"track_watch_callback: Invalid index {idx}, watches_count={len(watches)}")
+        await callback.message.answer("Error: Invalid watch selection")
+    
     await callback.answer(translate("Added to watchlist!", lang))
 
 async def check_track_watches(user_id, bot):
@@ -730,8 +804,11 @@ async def price_to_callback_handler(callback: types.CallbackQuery, state: FSMCon
     data = await state.get_data()
     watch_name = data.get("watch_name")
     price_from = data.get("price_from")
-    await callback.message.answer(translate(
-        f"You have selected {watch_name} a range: from {price_from} to {price_to}. Do you want look /watches ?", lang
+    message_template = translate("You have selected {watch_name} a range: from {price_from} to {price_to}. Do you want look /watches ?", lang)
+    await callback.message.answer(message_template.format(
+        watch_name=watch_name,
+        price_from=price_from,
+        price_to=price_to
     ))
     await callback.answer()
 
@@ -772,6 +849,7 @@ async def main():
 
  
     dp.callback_query.register(track_watch_callback, lambda c: c.data.startswith("track_"))
+    dp.callback_query.register(favorite_watches, lambda c: c.data.startswith("favorite_"))
     dp.callback_query.register(favorite_watches, lambda c: c.data.startswith("favorite_"))
     
     dp.message.register(keyboard_handler, F.text.in_([
