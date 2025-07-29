@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     libpq-dev \
     gcc \
+    python3-distutils \
     && rm -rf /var/lib/apt/lists/*
 
 
