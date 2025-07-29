@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:13-alpine
+    container_name: bot_postgres
+    environment:
+      POSTGRES_DB: ${database:-telegram}
+      POSTGRES_USER: ${user:-postgres}
+      POSTGRES_PASSWORD: ${password:-1111}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${user:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  bot:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: telegram_watch_bot
+    environment:
+      - token=${token}
+      - user=${user:-bot_user}
+      - password=${password:-bot_password}
+      - database=${database:-bot_db}
+      - host=postgres
+      - port=5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./bot.log:/app/bot.log
+
+
+volumes:
+  postgres_data:
