@@ -479,7 +479,12 @@ def get_watches_omega(url):
 
 def get_watches_rolex(url):
     options = uc.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--disable-gpu')
+    options.add_argument('--disable-features=VizDisplayCompositor')
+    options.add_argument('--remote-debugging-port=9222')
     driver = uc.Chrome(options=options)
     driver.get(url)
     try:
@@ -531,7 +536,11 @@ def get_watches_jlc(url):
     try:
         options = webdriver.ChromeOptions()
         options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-gpu')
+        options.add_argument('--disable-features=VizDisplayCompositor')
+        options.add_argument('--remote-debugging-port=9223')
         driver = webdriver.Chrome(options=options)
         driver.get(url)
         time.sleep(5)
