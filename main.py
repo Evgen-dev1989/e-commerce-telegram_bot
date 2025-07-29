@@ -255,7 +255,7 @@ async def favorite_watches(event, state: FSMContext):
     except asyncpg.PostgresError as e:
         lang = user_languages.get(user_id, "en")
         await send(translate("db_error", lang))
-        logging.error(translate(f"favorite_watch_callback DB error: {e}", lang))
+        logging.error(translate("favorite_watch_callback DB error", lang) + f": {e}")
     finally:
         if conn is not None:
             await conn.close()
@@ -297,7 +297,7 @@ async def brand_input_handler(message: types.Message, state: FSMContext):
             await message.answer(translate(
                 f"Name: {watch.get('name', '')}\n"
                 f"Characteristics: {watch.get('characteristics', '')}\n"
-                f"Price: {watch.get('price', '')}"
+                f"Price: {watch.get('price', '')}", lang
             ))
     except Exception as e:
         logging.error(f"error of search: {e}")
@@ -339,7 +339,7 @@ async def delete_favorite_watches(event, state: FSMContext):
         await send(translate("all_your_favorite_watches_have_been_deleted", lang))
 
     except asyncpg.PostgresError as e:
-        logging.error(translate(f"favorite_watch_callback DB error: {e}", lang))
+        logging.error(translate("favorite_watch_callback DB error", lang) + f": {e}")
     finally:
         if conn is not None:
             await conn.close()
@@ -349,7 +349,7 @@ async def keyboard_handler(message: types.Message):
     logging.info(translate("User select an option", lang))
     await message.answer(translate("Select an option:", lang), reply_markup=name_watches)
     
-    if message.text == translate("Show my favorite watches", lang):
+    if message.text == translate("Show my favorite watches:", lang):
         await favorite_watches(message, None)
     elif message.text == translate("Delete watch", lang):
         await delete_favorite_watches(message, None)
@@ -565,7 +565,7 @@ async def send_next_batch(message: types.Message, state: FSMContext):
 
     batch = watches[index:index+4]
     if not batch:
-        await message.answer(_("No more watches."))
+        await message.answer(translate("No more watches.", lang))
         await state.clear()
         return
 
@@ -637,7 +637,7 @@ async def track_watch_callback(callback: types.CallbackQuery, state: FSMContext)
             f"You have added to tracking:\n"
             f"Name: {watch.get('name', '')}\n"
             f"Characteristics: {watch.get('characteristics', '')}\n"
-            f"Price: {watch.get('price', '')}"
+            f"Price: {watch.get('price', '')}", lang
         ))
     await callback.answer(translate("Added to watchlist!", lang))
 
@@ -731,7 +731,7 @@ async def price_to_callback_handler(callback: types.CallbackQuery, state: FSMCon
     watch_name = data.get("watch_name")
     price_from = data.get("price_from")
     await callback.message.answer(translate(
-        f"You have selected {watch_name} a range: from {price_from} to {price_to}. Do you want look /watches ?"
+        f"You have selected {watch_name} a range: from {price_from} to {price_to}. Do you want look /watches ?", lang
     ))
     await callback.answer()
 
