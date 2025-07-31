@@ -22,7 +22,15 @@ from selenium import webdriver
 from words import translate, translations, user_languages
 
 
+load_dotenv()
 
+
+token = os.getenv("token")
+user = os.getenv("user")
+password = os.getenv("password")
+database = os.getenv("database")
+host = os.getenv("host")
+port = os.getenv("port")
 
 print("=== Environment Variables Debug ===")
 print(f"TOKEN exists: {bool(os.getenv('token'))}")
@@ -38,14 +46,6 @@ if not token:
 
 
 
-load_dotenv()
-
-token = os.getenv("token")
-user = os.getenv("user")
-password = os.getenv("password")
-database = os.getenv("database")
-host = os.getenv("host")
-port = os.getenv("port")
 
 logging.basicConfig(
     level=logging.INFO,  
