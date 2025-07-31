@@ -4,6 +4,8 @@ services:
   postgres:
     image: postgres:13-alpine
     container_name: bot_postgres
+    env_file:
+      - .env
     environment:
       POSTGRES_DB: ${database:-telegram}
       POSTGRES_USER: ${user:-postgres}
@@ -23,6 +25,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: telegram_watch_bot
+    env_file:
+      - .env
     environment:
       - token=${token}
       - user=${user:-bot_user}
@@ -36,7 +40,6 @@ services:
     restart: unless-stopped
     volumes:
       - ./bot.log:/app/bot.log
-
 
 volumes:
   postgres_data:

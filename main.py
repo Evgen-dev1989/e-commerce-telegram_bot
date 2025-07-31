@@ -21,6 +21,23 @@ from lxml import html
 from selenium import webdriver
 from words import translate, translations, user_languages
 
+
+
+
+print("=== Environment Variables Debug ===")
+print(f"TOKEN exists: {bool(os.getenv('token'))}")
+print(f"USER: {os.getenv('user')}")
+print(f"DATABASE: {os.getenv('database')}")
+print(f"HOST: {os.getenv('host')}")
+print("================================")
+
+token = os.getenv("token")
+if not token:
+    raise ValueError("Bot token is missing! Check your .env file or environment variables.")
+
+
+
+
 load_dotenv()
 
 token = os.getenv("token")
@@ -167,22 +184,6 @@ async def save_user_language(user_id: int, language: str):
     finally:
         if conn is not None:
             await conn.close()
-
-
-# @dp.message(Command("start"))
-# async def start_handler(message: types.Message, state: FSMContext):
-#     lang = user_languages.get(message.from_user.id, "en")
-#     main_menu_kb = ReplyKeyboardMarkup(
-#         keyboard=[
-#             [KeyboardButton(text=translate("Show my favorite watches:", lang))],
-#             [KeyboardButton(text=translate("Delete watch", lang))]
-#         ],
-#         resize_keyboard=True,
-#         one_time_keyboard=False
-#     )
-
-#     await message.answer(translate("Welcome to the Watches Bot! Choose a watch:", lang), reply_markup=main_menu_kb)
-
 
 
 
@@ -783,7 +784,7 @@ price_from_kb = InlineKeyboardMarkup(
     inline_keyboard=[
         [InlineKeyboardButton(text="1000", callback_data="from_1000"),
          InlineKeyboardButton(text="2000", callback_data="from_2000"),
-         InlineKeyboardButton(text="3000", callback_data="from_3000")],
+         InlineKeyboardButton(text="3000", callback_data="from_30000")],
         [InlineKeyboardButton(text="40000", callback_data="from_40000"),
          InlineKeyboardButton(text="50000", callback_data="from_50000")]
     ]
@@ -792,10 +793,10 @@ price_from_kb = InlineKeyboardMarkup(
 price_to_kb = InlineKeyboardMarkup(
     inline_keyboard=[
         [InlineKeyboardButton(text="2000", callback_data="to_2000"),
-         InlineKeyboardButton(text="3000", callback_data="to_3000"),
+         InlineKeyboardButton(text="3000", callback_data="to_30000"),
          InlineKeyboardButton(text="40000", callback_data="to_40000")],
         [InlineKeyboardButton(text="50000", callback_data="to_50000"),
-         InlineKeyboardButton(text="10000+", callback_data="to_10000")]
+         InlineKeyboardButton(text="10000+", callback_data="to_100000")]
     ]
 )
 

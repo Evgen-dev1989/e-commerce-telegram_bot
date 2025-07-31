@@ -38,6 +38,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+RUN echo "Checking environment variables..."
 
 RUN useradd --create-home --shell /bin/bash app \
     && chown -R app:app /app
